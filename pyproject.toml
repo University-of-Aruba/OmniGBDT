@@ -7,7 +7,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "omnigbdt"
-version = "0.1.5"
+version = "0.1.6"
 description = "Gradient boosted decision trees for multiple outputs"
 readme = "README.md"
 requires-python = ">=3.10,<3.14"
@@ -46,8 +46,8 @@ test = [
 
 [project.urls]
 Documentation = "https://omnigbdt.readthedocs.io"
-Source = "https://github.com/flacle/OmniGBDT"
-Issues = "https://github.com/flacle/OmniGBDT/issues"
+Source = "https://github.com/University-of-Aruba/OmniGBDT"
+Issues = "https://github.com/University-of-Aruba/OmniGBDT/issues"
 Upstream = "https://github.com/zzd1992/GBDTMO"
 
 [tool.scikit-build] 
