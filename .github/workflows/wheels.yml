@@ -26,12 +26,8 @@ jobs:
             label: Windows x86_64 wheels
             cibw_archs: AMD64
             cibw_environment_macos: ""
-          - os: macos-15-intel
-            label: macOS x86_64 wheels (macOS 14+)
-            cibw_archs: x86_64
-            cibw_environment_macos: "MACOSX_DEPLOYMENT_TARGET=14.0 CMAKE_OSX_DEPLOYMENT_TARGET=14.0"
           - os: macos-14
-            label: macOS arm64 wheels (macOS 14+)
+            label: macOS arm64 wheels (Apple Silicon, macOS 14+)
             cibw_archs: arm64
             cibw_environment_macos: "MACOSX_DEPLOYMENT_TARGET=14.0 CMAKE_OSX_DEPLOYMENT_TARGET=14.0"
 
