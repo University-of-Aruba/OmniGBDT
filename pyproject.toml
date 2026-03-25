@@ -7,7 +7,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "omnigbdt"
-version = "0.1.4"
+version = "0.1.5"
 description = "Gradient boosted decision trees for multiple outputs"
 readme = "README.md"
 requires-python = ">=3.10,<3.14"
