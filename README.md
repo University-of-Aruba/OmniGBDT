@@ -1,6 +1,6 @@
 # OmniGBDT
 
-OmniGBDT packages the original GBDT-MO algorithm as a regular Python library. It keeps the native C++ training core and adds modern Python packaging, cross-platform wheels, and optional sklearn-compatible wrappers.
+OmniGBDT packages the original [GBDT-MO](https://github.com/zzd1992/GBDTMO) algorithm as a regular Python library. It keeps the native C++ training core and adds modern Python packaging, cross-platform wheels, and optional sklearn-compatible wrappers.
 
 The main public classes are `MultiOutputGBDT` and `SingleOutputGBDT`.
 
