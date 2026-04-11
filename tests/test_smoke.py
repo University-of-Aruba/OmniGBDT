@@ -4,6 +4,7 @@ import importlib.util
 import numpy as np
 import pytest
 
+import omnigbdt.lib_utils as lib_utils
 from omnigbdt import MultiOutputGBDT, SingleOutputGBDT, Verbosity, load_lib
 from omnigbdt.lib_utils import _resolve_packaged_library_path
 
@@ -65,6 +66,59 @@ class EvalMetricSequence:
             self.index += 1
             return float(value)
         return rmse_metric(preds, target)
+
+
+def test_resolve_packaged_library_path_falls_back_to_installed_distribution(monkeypatch, tmp_path):
+    """Ensure wheel-installed libraries are found when the source tree shadows imports.
+
+    Args:
+        monkeypatch: Pytest monkeypatch fixture.
+        tmp_path: Temporary directory fixture.
+    """
+
+    class FakeDistribution:
+        """Minimal distribution stub for native-library path resolution tests."""
+
+        files = [Path("omnigbdt") / lib_utils._candidate_library_names()[0]]
+
+        def __init__(self, root):
+            """Store the fake distribution root.
+
+            Args:
+                root: Temporary site-packages-style root directory.
+            """
+            self.root = root
+
+        def locate_file(self, relative_path):
+            """Resolve a relative distribution path under the fake root.
+
+            Args:
+                relative_path: Relative path supplied by importlib metadata.
+
+            Returns:
+                Path: Absolute path within the fake distribution root.
+            """
+            return self.root / Path(relative_path)
+
+    shadow_package_dir = tmp_path / "shadow_checkout" / "omnigbdt"
+    shadow_package_dir.mkdir(parents=True)
+    monkeypatch.setattr(lib_utils, "__file__", str(shadow_package_dir / "lib_utils.py"))
+
+    site_packages_dir = tmp_path / "site-packages"
+    library_dir = site_packages_dir / "omnigbdt"
+    library_dir.mkdir(parents=True)
+    expected_library = library_dir / lib_utils._candidate_library_names()[0]
+    expected_library.write_bytes(b"not-a-real-library")
+
+    monkeypatch.setattr(
+        lib_utils.importlib_metadata,
+        "distribution",
+        lambda distribution_name: FakeDistribution(site_packages_dir),
+    )
+
+    resolved_library = _resolve_packaged_library_path()
+
+    assert resolved_library == expected_library.resolve()
 
 
 def test_multioutputgbdt_smoke(tmp_path):

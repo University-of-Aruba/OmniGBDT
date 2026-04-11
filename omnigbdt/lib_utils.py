@@ -1,6 +1,7 @@
 import ctypes
 from ctypes import POINTER, c_bool, c_char_p, c_double, c_int, c_void_p
 from enum import IntEnum
+from importlib import metadata as importlib_metadata
 from numbers import Integral
 import os
 from pathlib import Path
@@ -120,7 +121,53 @@ def _find_library_in_directory(directory):
     return None
 
 
+def _resolve_installed_distribution_library_path(distribution_name="omnigbdt"):
+    """Resolve the native library from an installed wheel distribution.
+
+    This fallback is useful when tests run from a source checkout while the
+    wheel under test is installed into site-packages. In that situation,
+    ``omnigbdt.__file__`` points at the source tree, but the shared library
+    still lives in the installed distribution.
+
+    Args:
+        distribution_name: Installed distribution name to inspect.
+
+    Returns:
+        Path | None: Resolved library path when found, otherwise ``None``.
+    """
+    try:
+        distribution = importlib_metadata.distribution(distribution_name)
+    except importlib_metadata.PackageNotFoundError:
+        return None
+
+    candidate_names = set(_candidate_library_names())
+    for file_path in distribution.files or ():
+        relative_path = Path(file_path)
+        if relative_path.name not in candidate_names:
+            continue
+        resolved_path = Path(distribution.locate_file(relative_path)).resolve()
+        if resolved_path.is_file():
+            return resolved_path
+
+    distribution_root = Path(distribution.locate_file("")).resolve()
+    for directory in (distribution_root / "omnigbdt", distribution_root):
+        direct_match = _find_library_in_directory(directory)
+        if direct_match is not None:
+            return direct_match
+
+    return None
+
+
 def _resolve_packaged_library_path():
+    """Resolve the bundled native library path for the current environment.
+
+    Returns:
+        Path: Absolute path to the packaged native library.
+
+    Raises:
+        FileNotFoundError: If no packaged or installed native library can be
+            found.
+    """
     package_dir = Path(__file__).resolve().parent
     search_roots = [package_dir, package_dir.parent]
     for root in search_roots:
@@ -135,6 +182,10 @@ def _resolve_packaged_library_path():
                 matches = sorted(build_dir.rglob(name))
                 if matches:
                     return matches[0].resolve()
+
+    installed_match = _resolve_installed_distribution_library_path()
+    if installed_match is not None:
+        return installed_match
 
     raise FileNotFoundError(
         "Could not find the packaged OmniGBDT native library. "
