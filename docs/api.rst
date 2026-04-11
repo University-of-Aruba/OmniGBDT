@@ -29,6 +29,8 @@ MultiOutputGBDT
 
    When ``params["base_score"]`` is left as ``None`` with ``loss=b"mse"``, the initial prediction is inferred from the training-label mean for each output column.
 
+   When ``params["deterministic"]`` is ``True``, repeated CPU runs on the same platform are intended to be repeatable for a fixed ``num_threads`` setting.
+
    .. method:: set_data(train_set=None, eval_set=None)
 
       Register training and optional evaluation data.
@@ -98,6 +100,8 @@ SingleOutputGBDT
 
    When ``params["base_score"]`` is left as ``None`` with ``loss=b"mse"``, the initial prediction is inferred from the training-label mean.
 
+   When ``params["deterministic"]`` is ``True``, repeated CPU runs on the same platform are intended to be repeatable for a fixed ``num_threads`` setting.
+
    .. method:: set_data(train_set=None, eval_set=None)
 
       Register training and optional evaluation data.
@@ -156,7 +160,7 @@ SingleOutputGBDTRegressor
 
    It exposes ``fit(...)``, ``predict(...)``, and ``score(...)`` for use with tools such as ``sklearn.inspection.permutation_importance``.
 
-   Its constructor also accepts ``objective=None``, ``eval_metric=None``, and ``maximize=None`` and forwards them to ``SingleOutputGBDT.train(...)``.
+   Its constructor also accepts ``objective=None``, ``eval_metric=None``, ``maximize=None``, and ``deterministic=True`` and forwards them to ``SingleOutputGBDT``.
 
 MultiOutputGBDTRegressor
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -167,7 +171,7 @@ MultiOutputGBDTRegressor
 
    It exposes ``fit(...)``, ``predict(...)``, and ``score(...)`` for sklearn-style multi-output workflows.
 
-   Its constructor also accepts ``objective=None``, ``eval_metric=None``, and ``maximize=None`` and forwards them to ``MultiOutputGBDT.train(...)``.
+   Its constructor also accepts ``objective=None``, ``eval_metric=None``, ``maximize=None``, and ``deterministic=True`` and forwards them to ``MultiOutputGBDT``.
 
 Utilities
 ---------

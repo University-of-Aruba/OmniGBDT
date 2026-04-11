@@ -8,6 +8,7 @@ import numpy as np
 from .histogram import get_bins_maps
 from .lib_utils import (
     Verbosity,
+    _normalize_deterministic,
     _normalize_verbosity,
     array_1d_double,
     array_1d_int,
@@ -531,6 +532,7 @@ class SingleOutputGBDT(BoostUtils):
         user_params = {} if params is None else dict(params)
         self.params = default_params()
         self.params.update(user_params)
+        self.params["deterministic"] = _normalize_deterministic(user_params, self.params)
         self.params["verbosity"] = _normalize_verbosity(user_params, self.params)
         self.params["verbose"] = self.params["verbosity"] >= int(Verbosity.FULL)
         self.__dict__.update(self.params)
@@ -686,6 +688,7 @@ class MultiOutputGBDT(BoostUtils):
         user_params = {} if params is None else dict(params)
         self.params = default_params()
         self.params.update(user_params)
+        self.params["deterministic"] = _normalize_deterministic(user_params, self.params)
         self.params["verbosity"] = _normalize_verbosity(user_params, self.params)
         self.params["verbose"] = self.params["verbosity"] >= int(Verbosity.FULL)
         self.__dict__.update(self.params)

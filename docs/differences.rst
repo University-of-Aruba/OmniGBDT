@@ -19,6 +19,7 @@ Python API additions
 OmniGBDT adds several public Python-facing features on top of the native core:
 
 - public callback hooks for custom gradients, Hessians, metrics, and Python-side early stopping through ``train(..., objective=..., eval_metric=..., maximize=...)``
+- public ``deterministic`` parameter for fixed-thread CPU repeatability on the same platform
 - optional sklearn-compatible wrappers for ``SingleOutputGBDT`` and ``MultiOutputGBDT``
 - direct interoperability with sklearn tooling such as permutation importance
 
@@ -41,6 +42,7 @@ Most changes in the fork remain packaging and Python-API changes, but a small nu
 - stricter ``min_samples`` enforcement during split scoring
 - safe child-node materialization after a split
 - proper root-leaf fallback when no valid split exists
+- deterministic split selection for fixed-thread CPU repeatability
 
 As a result, same-seed runs are not guaranteed to match older buggy runs exactly. Trees may differ because invalid small-child splits are filtered earlier and the resulting control flow changes accordingly.
 

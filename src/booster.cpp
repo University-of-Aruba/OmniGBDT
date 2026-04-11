@@ -1,7 +1,61 @@
 #include "booster.h"
-#include <mutex>
 
-std::mutex write_lock_hist;
+namespace {
+
+constexpr double kSplitTieEpsilon = 1e-12;
+
+bool is_valid_split(const SplitInfo &split) {
+    return split.column >= 0;
+}
+
+bool gain_is_greater(double lhs, double rhs) {
+    return lhs > rhs + kSplitTieEpsilon;
+}
+
+bool threshold_is_less(double lhs, double rhs) {
+    return lhs + kSplitTieEpsilon < rhs;
+}
+
+bool is_better_split(const SplitInfo &candidate, const SplitInfo &best) {
+    if (!is_valid_split(candidate)) {
+        return false;
+    }
+    if (!is_valid_split(best)) {
+        return true;
+    }
+    if (gain_is_greater(candidate.gain, best.gain)) {
+        return true;
+    }
+    if (gain_is_greater(best.gain, candidate.gain)) {
+        return false;
+    }
+    if (candidate.column != best.column) {
+        return candidate.column < best.column;
+    }
+    if (candidate.bin != best.bin) {
+        return candidate.bin < best.bin;
+    }
+    if (threshold_is_less(candidate.threshold, best.threshold)) {
+        return true;
+    }
+    if (threshold_is_less(best.threshold, candidate.threshold)) {
+        return false;
+    }
+    return false;
+}
+
+SplitInfo select_best_split(const vector<SplitInfo> &candidates) {
+    SplitInfo best;
+    best.reset();
+    for (const auto &candidate : candidates) {
+        if (is_better_split(candidate, best)) {
+            best = candidate;
+        }
+    }
+    return best;
+}
+
+}  // namespace
 
 void BoosterUtils::set_bin(uint16_t *bins, double *values) {
     bin_nums.clear();
@@ -169,7 +223,6 @@ BoosterSingle::BoosterSingle(
     hp.verbosity = max(0, min(verbosity, 2));
     hp.Max_caches = hist_cache;
 
-    srand(hp.seed);
     omp_set_num_threads(hp.num_threads);
     cache = TopkDeque<CacheInfo>(hp.Max_caches);
     obj = Objective(hp.loss);
@@ -196,7 +249,7 @@ void BoosterSingle::hist_all(vector<int32_t> &order, vector<Histogram> &Hist) {
     }
 }
 
-void BoosterSingle::boost_column(Histogram &Hist, int column) {
+SplitInfo BoosterSingle::boost_column(Histogram &Hist, int column) {
     int max_bins = Hist.cnt.size() - 1;
     int total_rows = Hist.cnt[max_bins];
     double gr, hr;
@@ -219,20 +272,21 @@ void BoosterSingle::boost_column(Histogram &Hist, int column) {
     }
     gain -= Score_sum;
     gain *= 0.5f;
-    {
-        std::lock_guard<std::mutex> lock(write_lock_hist);
-        if (row_bins > -1 && gain > meta.gain) {
-            meta.update(gain, column, row_bins, bin_values[column][row_bins]);
-        }
+    SplitInfo candidate;
+    candidate.reset();
+    if (row_bins > -1) {
+        candidate.update(gain, column, row_bins, bin_values[column][row_bins]);
     }
+    return candidate;
 }
 
 void BoosterSingle::boost_all(vector<Histogram> &Hist) {
-    meta.reset();
+    vector<SplitInfo> candidates(hp.inp_dim);
 #pragma omp parallel for schedule(static)
     for (int i = 0; i < hp.inp_dim; ++i) {
-        boost_column(Hist[i], i);
+        candidates[i] = boost_column(Hist[i], i);
     }
+    meta = select_best_split(candidates);
 }
 
 void BoosterSingle::build_tree_best() {
@@ -268,7 +322,7 @@ void BoosterSingle::build_tree_best() {
 
     bool split_left = false;
     if (rows_l > 0) {
-        get_score_opt(Hist_l[rand() % hp.inp_dim], Opt, Score_sum);
+        get_score_opt(Hist_l[0], Opt, Score_sum);
         if (rows_l >= hp.min_samples) {
             boost_all(Hist_l);
 
@@ -292,7 +346,7 @@ void BoosterSingle::build_tree_best() {
     if (tree.leaf_num >= hp.max_leaves) { return; }
     bool split_right = false;
     if (rows_r > 0) {
-        get_score_opt(Hist_r[rand() % hp.inp_dim], Opt, Score_sum);
+        get_score_opt(Hist_r[0], Opt, Score_sum);
         if (rows_r >= hp.min_samples) {
             boost_all(Hist_r);
 
@@ -332,7 +386,7 @@ void BoosterSingle::growth() {
     vector<Histogram> Hist(hp.inp_dim);
     for (int i = 0; i < hp.inp_dim; i++) { Hist[i] = Histogram(bin_nums[i], 1); }
     hist_all(Train.Orders, Hist);
-    get_score_opt(Hist[rand() % hp.inp_dim], Opt, Score_sum);
+    get_score_opt(Hist[0], Opt, Score_sum);
     boost_all(Hist);
     if (meta.column > -1 & meta.gain > -10.0f) {
         auto node = NonLeafNode(-1, meta.column, meta.bin, meta.threshold);
@@ -503,7 +557,6 @@ BoosterMulti::BoosterMulti(
     hp.verbosity = max(0, min(verbosity, 2));
     hp.Max_caches = hist_cache;
 
-    srand(hp.seed);
     Score.resize(hp.out_dim);
     if (hp.topk > 0) {
         OptPair.resize(hp.topk);
@@ -554,7 +607,7 @@ void BoosterMulti::hist_all(vector<int32_t> &order, vector<Histogram> &Hist) {
     }
 }
 
-void BoosterMulti::boost_column_full(Histogram &Hist, int column) {
+SplitInfo BoosterMulti::boost_column_full(Histogram &Hist, int column) {
     double *gr = &Hist.g[Hist.g.size() - hp.out_dim];
     double *hr = &Hist.h[Hist.h.size() - hp.out_dim];
     double gain = 0.0f, tmp;
@@ -583,15 +636,15 @@ void BoosterMulti::boost_column_full(Histogram &Hist, int column) {
     }
     gain -= Score_sum;
     gain *= 0.5 / hp.out_dim;
-    {
-        std::lock_guard<std::mutex> lock(write_lock_hist);
-        if (row_bins > -1 && gain > meta.gain) {
-            meta.update(gain, column, row_bins, bin_values[column][row_bins]);
-        }
+    SplitInfo candidate;
+    candidate.reset();
+    if (row_bins > -1) {
+        candidate.update(gain, column, row_bins, bin_values[column][row_bins]);
     }
+    return candidate;
 }
 
-void BoosterMulti::boost_column_topk_two_side(Histogram &Hist, int column) {
+SplitInfo BoosterMulti::boost_column_topk_two_side(Histogram &Hist, int column) {
     double *gr = &Hist.g[Hist.g.size() - hp.out_dim];
     double *hr = &Hist.h[Hist.h.size() - hp.out_dim];
 
@@ -635,15 +688,15 @@ void BoosterMulti::boost_column_topk_two_side(Histogram &Hist, int column) {
     }
     gain -= Score_sum;
     gain *= 0.5 / hp.topk;
-    {
-        std::lock_guard<std::mutex> lock(write_lock_hist);
-        if (row_bins > -1 && gain > meta.gain) {
-            meta.update(gain, column, row_bins, bin_values[column][row_bins]);
-        }
+    SplitInfo candidate;
+    candidate.reset();
+    if (row_bins > -1) {
+        candidate.update(gain, column, row_bins, bin_values[column][row_bins]);
     }
+    return candidate;
 }
 
-void BoosterMulti::boost_column_topk_one_side(Histogram &Hist, int column) {
+SplitInfo BoosterMulti::boost_column_topk_one_side(Histogram &Hist, int column) {
     double *gr = &Hist.g[Hist.g.size() - hp.out_dim];
     double *hr = &Hist.h[Hist.h.size() - hp.out_dim];
 
@@ -681,34 +734,35 @@ void BoosterMulti::boost_column_topk_one_side(Histogram &Hist, int column) {
     }
     gain -= Score_sum;
     gain *= 0.5 / hp.topk;
-    {
-        std::lock_guard<std::mutex> lock(write_lock_hist);
-        if (row_bins > -1 && gain > meta.gain) {
-            meta.update(gain, column, row_bins, bin_values[column][row_bins]);
-        }
+    SplitInfo candidate;
+    candidate.reset();
+    if (row_bins > -1) {
+        candidate.update(gain, column, row_bins, bin_values[column][row_bins]);
     }
+    return candidate;
 }
 
 void BoosterMulti::boost_all(vector<Histogram> &Hist) {
-    meta.reset();
+    vector<SplitInfo> candidates(hp.inp_dim);
     if (hp.topk == 0) {
 #pragma omp parallel for schedule(static)
         for (int i = 0; i < hp.inp_dim; i++) {
-            boost_column_full(Hist[i], i);
+            candidates[i] = boost_column_full(Hist[i], i);
         }
     } else {
         if (hp.one_side) {
 #pragma omp parallel for schedule(static)
             for (int i = 0; i < hp.inp_dim; i++) {
-                boost_column_topk_one_side(Hist[i], i);
+                candidates[i] = boost_column_topk_one_side(Hist[i], i);
             }
         } else {
 #pragma omp parallel for schedule(static)
             for (int i = 0; i < hp.inp_dim; i++) {
-                boost_column_topk_two_side(Hist[i], i);
+                candidates[i] = boost_column_topk_two_side(Hist[i], i);
             }
         }
     }
+    meta = select_best_split(candidates);
 }
 
 void BoosterMulti::build_tree_best() {
@@ -745,9 +799,9 @@ void BoosterMulti::build_tree_best() {
     bool split_left = false;
     if (rows_l > 0) {
         if (hp.topk == 0) {
-            get_score_opt(Hist_l[rand() % hp.inp_dim], Opt, Score, Score_sum);
+            get_score_opt(Hist_l[0], Opt, Score, Score_sum);
         } else {
-            get_score_opt(Hist_l[rand() % hp.inp_dim], OptPair, Score, Score_sum);
+            get_score_opt(Hist_l[0], OptPair, Score, Score_sum);
         }
         if (rows_l >= hp.min_samples) {
             boost_all(Hist_l);
@@ -777,9 +831,9 @@ void BoosterMulti::build_tree_best() {
     bool split_right = false;
     if (rows_r > 0) {
         if (hp.topk == 0) {
-            get_score_opt(Hist_r[rand() % hp.inp_dim], Opt, Score, Score_sum);
+            get_score_opt(Hist_r[0], Opt, Score, Score_sum);
         } else {
-            get_score_opt(Hist_r[rand() % hp.inp_dim], OptPair, Score, Score_sum);
+            get_score_opt(Hist_r[0], OptPair, Score, Score_sum);
         }
         if (rows_r >= hp.min_samples) {
             boost_all(Hist_r);
@@ -824,9 +878,9 @@ void BoosterMulti::growth() {
     for (int i = 0; i < hp.inp_dim; i++) { Hist[i] = Histogram(bin_nums[i], hp.out_dim); }
     hist_all(Train.Orders, Hist);
     if (hp.topk == 0) {
-        get_score_opt(Hist[rand() % hp.inp_dim], Opt, Score, Score_sum);
+        get_score_opt(Hist[0], Opt, Score, Score_sum);
     } else {
-        get_score_opt(Hist[rand() % hp.inp_dim], OptPair, Score, Score_sum);
+        get_score_opt(Hist[0], OptPair, Score, Score_sum);
     }
     boost_all(Hist);
     if (meta.column > -1 & meta.gain > -10.0f) {

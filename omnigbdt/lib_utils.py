@@ -27,6 +27,18 @@ class Verbosity(IntEnum):
 
 
 def _normalize_verbosity(user_params=None, params=None):
+    """Normalize the public verbosity parameter to an integer level.
+
+    Args:
+        user_params: Optional user-supplied parameter mapping.
+        params: Optional merged parameter mapping.
+
+    Returns:
+        int: One of the integer ``Verbosity`` levels.
+
+    Raises:
+        ValueError: If the supplied verbosity value is unsupported.
+    """
     user_params = {} if user_params is None else user_params
     params = {} if params is None else params
 
@@ -59,6 +71,37 @@ def _normalize_verbosity(user_params=None, params=None):
         "verbosity must be one of Verbosity.SILENT, Verbosity.SUMMARY, "
         "Verbosity.FULL, or an integer in {0, 1, 2}."
     )
+
+
+def _normalize_deterministic(user_params=None, params=None):
+    """Normalize the public deterministic CPU mode parameter.
+
+    Args:
+        user_params: Optional user-supplied parameter mapping.
+        params: Optional merged parameter mapping.
+
+    Returns:
+        bool: Normalized deterministic CPU mode flag.
+
+    Raises:
+        ValueError: If the supplied deterministic value is unsupported.
+    """
+    user_params = {} if user_params is None else user_params
+    params = {} if params is None else params
+
+    value = (
+        user_params["deterministic"]
+        if "deterministic" in user_params
+        else params.get("deterministic", True)
+    )
+
+    if isinstance(value, (bool, np.bool_)):
+        return bool(value)
+
+    if isinstance(value, Integral) and int(value) in (0, 1):
+        return bool(value)
+
+    raise ValueError("deterministic must be a bool or an integer in {0, 1}.")
 
 
 def _candidate_library_names():
@@ -235,6 +278,7 @@ def default_params():
         "max_leaves": 32,
         "max_bins": 128,
         "topk": 0,
+        "deterministic": True,
         "seed": 0,
         "num_threads": 2,
         "min_samples": 20,

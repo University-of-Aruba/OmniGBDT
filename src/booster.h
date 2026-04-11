@@ -112,7 +112,7 @@ private:
 
     void hist_all(vector<int32_t> &, vector<Histogram> &);
 
-    void boost_column(Histogram &, int);
+    SplitInfo boost_column(Histogram &, int);
 
     void boost_all(vector<Histogram> &);
 
@@ -147,11 +147,11 @@ private:
 
     void hist_all(vector<int32_t> &, vector<Histogram> &);
 
-    void boost_column_full(Histogram &, int);
+    SplitInfo boost_column_full(Histogram &, int);
 
-    void boost_column_topk_two_side(Histogram &, int);
+    SplitInfo boost_column_topk_two_side(Histogram &, int);
 
-    void boost_column_topk_one_side(Histogram &, int);
+    SplitInfo boost_column_topk_one_side(Histogram &, int);
 
     void boost_all(vector<Histogram> &);
 

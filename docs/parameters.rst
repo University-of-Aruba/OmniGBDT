@@ -25,9 +25,13 @@ General
 - ``num_threads``: default = ``2``, type = int
   - Number of training threads
 
+- ``deterministic``: default = ``True``, type = bool
+  - Enables the documented fixed-thread CPU repeatability mode on the same platform
+  - The current packaged CPU implementation already uses deterministic split selection
+
 - ``seed``: default = ``0``, type = int
-  - Random seed
-  - The upstream code notes that this currently has limited practical effect
+  - Retained for API compatibility
+  - The current deterministic CPU training path does not actively use randomness during tree growth
 
 - ``hist_cache``: default = ``16``, type = int
   - Maximum number of histogram caches

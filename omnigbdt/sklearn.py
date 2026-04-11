@@ -139,6 +139,7 @@ class SingleOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
         max_depth=4,
         max_leaves=32,
         max_bins=128,
+        deterministic=True,
         seed=0,
         num_threads=2,
         min_samples=20,
@@ -163,6 +164,7 @@ class SingleOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
             max_depth: Maximum tree depth.
             max_leaves: Maximum leaves per tree.
             max_bins: Maximum histogram bins per feature.
+            deterministic: Whether to request deterministic CPU training mode.
             seed: Random seed.
             num_threads: Number of native threads.
             min_samples: Minimum rows in each leaf.
@@ -185,6 +187,7 @@ class SingleOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
         self.max_depth = max_depth
         self.max_leaves = max_leaves
         self.max_bins = max_bins
+        self.deterministic = deterministic
         self.seed = seed
         self.num_threads = num_threads
         self.min_samples = min_samples
@@ -209,6 +212,7 @@ class SingleOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
             "max_depth": self.max_depth,
             "max_leaves": self.max_leaves,
             "max_bins": self.max_bins,
+            "deterministic": self.deterministic,
             "seed": self.seed,
             "num_threads": self.num_threads,
             "min_samples": self.min_samples,
@@ -292,6 +296,7 @@ class MultiOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
         max_bins=128,
         topk=0,
         one_side=True,
+        deterministic=True,
         seed=0,
         num_threads=2,
         min_samples=20,
@@ -318,6 +323,7 @@ class MultiOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
             max_bins: Maximum histogram bins per feature.
             topk: Sparse split-finding parameter.
             one_side: Sparse split-finding variant selector.
+            deterministic: Whether to request deterministic CPU training mode.
             seed: Random seed.
             num_threads: Number of native threads.
             min_samples: Minimum rows in each leaf.
@@ -342,6 +348,7 @@ class MultiOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
         self.max_bins = max_bins
         self.topk = topk
         self.one_side = one_side
+        self.deterministic = deterministic
         self.seed = seed
         self.num_threads = num_threads
         self.min_samples = min_samples
@@ -368,6 +375,7 @@ class MultiOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
             "max_bins": self.max_bins,
             "topk": self.topk,
             "one_side": self.one_side,
+            "deterministic": self.deterministic,
             "seed": self.seed,
             "num_threads": self.num_threads,
             "min_samples": self.min_samples,

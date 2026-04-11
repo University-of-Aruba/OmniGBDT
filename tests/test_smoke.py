@@ -503,6 +503,23 @@ def test_custom_eval_metric_controls_verbosity_and_early_stopping(tmp_path, capf
     loaded.close()
 
 
+def test_public_deterministic_flag_is_normalized_on_python_wrappers():
+    """Ensure deterministic CPU mode is exposed on the direct Python wrappers."""
+    single = SingleOutputGBDT(params={"loss": b"mse", "deterministic": True})
+    assert single.params["deterministic"] is True
+    assert single.deterministic is True
+
+    multi = MultiOutputGBDT(out_dim=2, params={"loss": b"mse", "deterministic": False})
+    assert multi.params["deterministic"] is False
+    assert multi.deterministic is False
+
+    with pytest.raises(ValueError, match="deterministic"):
+        SingleOutputGBDT(params={"loss": b"mse", "deterministic": "yes"})
+
+    single.close()
+    multi.close()
+
+
 def test_optional_sklearn_wrappers_are_lazy():
     import omnigbdt
 
@@ -531,6 +548,7 @@ def test_singleoutput_sklearn_wrapper_supports_permutation_importance():
     model = SingleOutputGBDTRegressor(
         num_rounds=5,
         max_depth=3,
+        deterministic=True,
         num_threads=1,
         verbosity=Verbosity.SILENT,
     )
@@ -538,6 +556,7 @@ def test_singleoutput_sklearn_wrapper_supports_permutation_importance():
     preds = model.predict(x_train[:8])
 
     assert preds.shape == (8,)
+    assert model.booster_.params["deterministic"] is True
 
     result = permutation_importance(
         model,
@@ -570,6 +589,7 @@ def test_multioutput_sklearn_wrapper_smoke():
     model = MultiOutputGBDTRegressor(
         num_rounds=5,
         max_depth=3,
+        deterministic=True,
         num_threads=1,
         verbosity=Verbosity.SILENT,
     )
@@ -577,6 +597,7 @@ def test_multioutput_sklearn_wrapper_smoke():
     preds = model.predict(x_train[:8])
 
     assert preds.shape == (8, y_train.shape[1])
+    assert model.booster_.params["deterministic"] is True
     assert np.isfinite(model.score(x_train, y_train))
     model.close()
 
@@ -596,6 +617,7 @@ def test_singleoutput_sklearn_wrapper_supports_custom_objective():
         eval_metric=rmse_metric,
         maximize=False,
         max_depth=3,
+        deterministic=True,
         num_threads=1,
         verbosity=Verbosity.SILENT,
     )
@@ -627,6 +649,7 @@ def test_multioutput_sklearn_wrapper_supports_custom_objective():
         eval_metric=rmse_metric,
         maximize=False,
         max_depth=3,
+        deterministic=True,
         num_threads=1,
         verbosity=Verbosity.SILENT,
     )

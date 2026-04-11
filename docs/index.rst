@@ -11,6 +11,7 @@ Why OmniGBDT
 - Joint multi-output gradient boosting from the original GBDT-MO research codebase
 - Standard ``pip`` and ``uv`` installation with the native library bundled inside the package
 - Public Python callbacks for custom gradients, Hessians, metrics, and early stopping
+- Fixed-thread deterministic CPU training through the public ``deterministic`` parameter
 - Optional sklearn-compatible wrappers for tools such as permutation importance
 - Accuracy-oriented regression defaults in the current fork: ``num_rounds=200``, ``lr=0.05``, ``max_bins=128``, ``early_stop=15``, and automatic mean initialization when ``base_score`` is unset
 
@@ -96,6 +97,7 @@ Compared with the upstream repository, OmniGBDT currently adds:
 
 - standard Python packaging and bundled native-library loading
 - public Python callback hooks for custom gradients, Hessians, metrics, and early stopping
+- public ``deterministic`` parameter for fixed-thread CPU repeatability on the same platform
 - optional sklearn-compatible wrappers
 - automatic regression mean initialization when ``base_score`` is omitted
 - scalar or per-output ``base_score`` values for ``MultiOutputGBDT``

@@ -9,6 +9,7 @@ The main public classes are `MultiOutputGBDT` and `SingleOutputGBDT`.
 - Joint multi-output gradient boosting from the original GBDT-MO research codebase
 - Standard `pip` and `uv` installation with the native library bundled inside the package
 - Public Python callbacks for custom gradients, Hessians, metrics, and early stopping
+- Fixed-thread deterministic CPU training through the public `deterministic` parameter
 - Optional sklearn-compatible wrappers for tools such as permutation importance
 - Accuracy-oriented regression defaults in the current fork: `num_rounds=200`, `lr=0.05`, `max_bins=128`, `early_stop=15`, and automatic mean initialization when `base_score` is unset
 
@@ -86,7 +87,7 @@ preds = model.predict(X_test)
 print(preds.shape)
 ```
 
-`SingleOutputGBDT` can be used to train one model per target column as a simple baseline. A real-world financial benchmark based on the UCI Stock Portfolio Performance dataset, together with custom-objective and sklearn examples, is available in the hosted docs and in [docs/example.rst](docs/example.rst).
+`SingleOutputGBDT` can be used to train one model per target column as a simple baseline. A real-world financial benchmark based on the UCI Stock Portfolio Performance dataset, together with custom-objective and sklearn examples, is available in the [hosted examples page](https://omnigbdt.readthedocs.io/en/latest/example.html).
 
 ## Differences From The Original Package
 
@@ -95,22 +96,23 @@ Compared with the upstream GBDT-MO repository, OmniGBDT currently adds:
 - standard Python packaging and bundled native-library loading
 - wheel automation for Linux, macOS, and Windows
 - public Python callback hooks for custom gradients, Hessians, metrics, and early stopping
+- public `deterministic` parameter for fixed-thread CPU repeatability on the same platform
 - optional sklearn-compatible wrappers
 - automatic regression mean initialization when `base_score` is omitted
 - scalar or per-output `base_score` values for `MultiOutputGBDT`
 - accuracy-oriented wrapper defaults for regression workflows
 
-Several targeted native-code fixes are also part of the fork, so same-seed runs are not guaranteed to match older buggy runs exactly. A fuller summary is available in [docs/differences.rst](docs/differences.rst).
+Several targeted native-code fixes are also part of the fork, so same-seed runs are not guaranteed to match older buggy runs exactly. A fuller summary is available in the [Differences From Upstream page](https://omnigbdt.readthedocs.io/en/latest/differences.html).
 
 ## Documentation Guide
 
 - Hosted documentation: <https://omnigbdt.readthedocs.io>
-- Installation and source-build notes: [docs/install.rst](docs/install.rst)
-- Worked examples, including the financial benchmark: [docs/example.rst](docs/example.rst)
-- Python API reference: [docs/api.rst](docs/api.rst)
-- Parameter reference: [docs/parameters.rst](docs/parameters.rst)
-- Fork-specific differences: [docs/differences.rst](docs/differences.rst)
-- Development workflow: [docs/development.rst](docs/development.rst)
+- Installation and source-build notes: [install page](https://omnigbdt.readthedocs.io/en/latest/install.html)
+- Worked examples, including the financial benchmark: [examples page](https://omnigbdt.readthedocs.io/en/latest/example.html)
+- Python API reference: [API page](https://omnigbdt.readthedocs.io/en/latest/api.html)
+- Parameter reference: [parameters page](https://omnigbdt.readthedocs.io/en/latest/parameters.html)
+- Fork-specific differences: [differences page](https://omnigbdt.readthedocs.io/en/latest/differences.html)
+- Development workflow: [development page](https://omnigbdt.readthedocs.io/en/latest/development.html)
 
 ## Project Provenance
 

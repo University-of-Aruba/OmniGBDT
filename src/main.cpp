@@ -1,4 +1,5 @@
 #include <iostream>
+#include <random>
 #include "booster.h"
 
 using namespace std;
@@ -14,10 +15,12 @@ void test(int inp_dim, int out_dim, int N, const char *mode) {
     double preds_eval[N * out_dim];
     int32_t lables_eval[N];
     uint16_t maps_eval[N * inp_dim];
+    std::mt19937 generator(0);
+    std::uniform_real_distribution<double> distribution(0.0, 0.999);
 
     for (int i = 0; i < N; ++i) {
         for (int j = 0; j < inp_dim; ++j) {
-            double t = static_cast<double> (rand() % 1000) / 1000;
+            double t = distribution(generator);
             data[inp_dim * i + j] = t;
             data_eval[inp_dim * i + j] = t;
             maps[j * N + i] = static_cast<uint16_t> (t * 20);
