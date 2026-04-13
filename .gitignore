@@ -68,3 +68,6 @@ omnigbdt/_omnigbdt.dll
 venv/
 env/
 .venv/
+
+# Auxiliary documentation
+wiki/

@@ -68,6 +68,23 @@ class EvalMetricSequence:
         return rmse_metric(preds, target)
 
 
+def _first_tree_has_nonleaf(dump_text):
+    """Return whether the first dumped tree contains a split node.
+
+    Args:
+        dump_text: Full textual dump produced by ``booster.dump(...)``.
+
+    Returns:
+        bool: ``True`` when the first dumped booster tree contains a non-leaf
+        node line.
+    """
+    marker = "Booster[0]:\n"
+    if marker not in dump_text:
+        return False
+    first_tree = dump_text.split(marker, 1)[1].split("\nBooster[1]:", 1)[0]
+    return "\t-" in first_tree
+
+
 def test_resolve_packaged_library_path_falls_back_to_installed_distribution(monkeypatch, tmp_path):
     """Ensure wheel-installed libraries are found when the source tree shadows imports.
 
@@ -308,6 +325,86 @@ def test_singleoutputgbdt_falls_back_to_root_leaf_when_no_split_meets_min_sample
 
     booster.close()
     loaded.close()
+
+
+def test_large_gamma_can_force_singleoutput_root_leaf(tmp_path):
+    """Ensure a large gamma suppresses the root split for single-output models.
+
+    Args:
+        tmp_path: Temporary directory fixture.
+    """
+    x_train = np.array([[0.0], [1.0], [2.0], [3.0], [4.0], [5.0]], dtype=np.float64)
+    y_train = np.array([0.0, 0.1, 0.0, 1.0, 1.1, 1.0], dtype=np.float64)
+    common_params = {
+        "loss": b"mse",
+        "lr": 0.1,
+        "max_depth": 3,
+        "max_leaves": 8,
+        "min_samples": 2,
+        "num_threads": 1,
+        "verbosity": Verbosity.SILENT,
+    }
+
+    baseline = SingleOutputGBDT(params={**common_params, "gamma": 0.0})
+    baseline.set_data((x_train, y_train), (x_train, y_train))
+    baseline.train(1)
+    baseline_path = tmp_path / "single_baseline_gamma.txt"
+    baseline.dump(baseline_path)
+    assert _first_tree_has_nonleaf(baseline_path.read_text())
+
+    constrained = SingleOutputGBDT(params={**common_params, "gamma": 1e9})
+    constrained.set_data((x_train, y_train), (x_train, y_train))
+    constrained.train(1)
+    constrained_preds = constrained.predict(x_train)
+
+    constrained_path = tmp_path / "single_constrained_gamma.txt"
+    constrained.dump(constrained_path)
+    assert not _first_tree_has_nonleaf(constrained_path.read_text())
+    np.testing.assert_allclose(constrained_preds, np.repeat(constrained_preds[:1], len(x_train)))
+
+    baseline.close()
+    constrained.close()
+
+
+def test_large_gamma_can_force_multioutput_root_leaf(tmp_path):
+    """Ensure a large gamma suppresses the root split for multi-output models.
+
+    Args:
+        tmp_path: Temporary directory fixture.
+    """
+    x_train = np.array([[0.0], [1.0], [2.0], [3.0], [4.0], [5.0]], dtype=np.float64)
+    y_single = np.array([0.0, 0.1, 0.0, 1.0, 1.1, 1.0], dtype=np.float64)
+    y_train = np.column_stack([y_single, 0.5 * y_single + 0.2]).astype(np.float64)
+    common_params = {
+        "loss": b"mse",
+        "lr": 0.1,
+        "max_depth": 3,
+        "max_leaves": 8,
+        "min_samples": 2,
+        "num_threads": 1,
+        "verbosity": Verbosity.SILENT,
+    }
+
+    baseline = MultiOutputGBDT(out_dim=2, params={**common_params, "gamma": 0.0})
+    baseline.set_data((x_train, y_train), (x_train, y_train))
+    baseline.train(1)
+    baseline_path = tmp_path / "multi_baseline_gamma.txt"
+    baseline.dump(baseline_path)
+    assert _first_tree_has_nonleaf(baseline_path.read_text())
+
+    constrained = MultiOutputGBDT(out_dim=2, params={**common_params, "gamma": 1e9})
+    constrained.set_data((x_train, y_train), (x_train, y_train))
+    constrained.train(1)
+    constrained_preds = constrained.predict(x_train)
+
+    constrained_path = tmp_path / "multi_constrained_gamma.txt"
+    constrained.dump(constrained_path)
+    assert not _first_tree_has_nonleaf(constrained_path.read_text())
+    expected = np.repeat(constrained_preds[:1], len(x_train), axis=0)
+    np.testing.assert_allclose(constrained_preds, expected)
+
+    baseline.close()
+    constrained.close()
 
 
 def test_singleoutput_auto_base_score_matches_training_mean_and_persists_dump(tmp_path):

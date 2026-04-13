@@ -2,6 +2,8 @@
 
 OmniGBDT packages the original [GBDT-MO](https://github.com/zzd1992/GBDTMO) algorithm as a regular Python library. The native C++ training core remains in place, while the Python layer adds wheel-based installation, public custom-objective hooks, optional sklearn-compatible wrappers, and accuracy-oriented regression defaults.
 
+At the mathematical level, GBDT-MO replaces the usual one-tree-per-target strategy with a single tree whose split score is the summed second-order objective gain across all outputs. This allows one tree to reuse shared structure across correlated targets, supports optional sparse leaves that update only the most relevant outputs, and extends histogram-based split search to the multi-output case so the costs of training remain practical at larger output dimensions.
+
 The main public classes are `MultiOutputGBDT` and `SingleOutputGBDT`.
 
 ## Why OmniGBDT
@@ -101,6 +103,7 @@ Compared with the upstream GBDT-MO repository, OmniGBDT currently adds:
 - automatic regression mean initialization when `base_score` is omitted
 - scalar or per-output `base_score` values for `MultiOutputGBDT`
 - accuracy-oriented wrapper defaults for regression workflows
+- split gain thresholding through `gamma` that now applies consistently at the root and deeper nodes
 
 Several targeted native-code fixes are also part of the fork, so same-seed runs are not guaranteed to match older buggy runs exactly. A fuller summary is available in the [Differences From Upstream page](https://omnigbdt.readthedocs.io/en/latest/differences.html).
 

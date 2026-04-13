@@ -42,6 +42,7 @@ Most changes in the fork remain packaging and Python-API changes, but a small nu
 - stricter ``min_samples`` enforcement during split scoring
 - safe child-node materialization after a split
 - proper root-leaf fallback when no valid split exists
+- gain-thresholding through ``gamma`` that now applies consistently at the root and deeper nodes
 - deterministic split selection for fixed-thread CPU repeatability
 
 As a result, same-seed runs are not guaranteed to match older buggy runs exactly. Trees may differ because invalid small-child splits are filtered earlier and the resulting control flow changes accordingly.

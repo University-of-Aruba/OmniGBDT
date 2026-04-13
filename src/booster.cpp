@@ -388,7 +388,7 @@ void BoosterSingle::growth() {
     hist_all(Train.Orders, Hist);
     get_score_opt(Hist[0], Opt, Score_sum);
     boost_all(Hist);
-    if (meta.column > -1 & meta.gain > -10.0f) {
+    if (meta.column > -1 && meta.gain > hp.gamma) {
         auto node = NonLeafNode(-1, meta.column, meta.bin, meta.threshold);
         tree.add_nonleaf(node, true);
         cache.push(CacheInfo(-1, 0, meta, Train.Orders, Hist));
@@ -883,7 +883,7 @@ void BoosterMulti::growth() {
         get_score_opt(Hist[0], OptPair, Score, Score_sum);
     }
     boost_all(Hist);
-    if (meta.column > -1 & meta.gain > -10.0f) {
+    if (meta.column > -1 && meta.gain > hp.gamma) {
         auto node = NonLeafNode(-1, meta.column, meta.bin, meta.threshold);
         tree.add_nonleaf(node, true);
         cache.push(CacheInfo(-1, 0, meta, Train.Orders, Hist));

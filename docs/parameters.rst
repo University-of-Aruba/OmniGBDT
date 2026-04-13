@@ -84,6 +84,7 @@ Learning
 
 - ``gamma``: default = ``1e-3``, type = float
   - Minimum objective gain required for a split
+  - Applies to the root split as well as deeper nodes
 
 - ``subsample``: default = ``1.0``, type = float
   - Present in the Python defaults for compatibility
