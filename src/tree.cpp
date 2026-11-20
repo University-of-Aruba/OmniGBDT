@@ -61,13 +61,14 @@ void Tree::pred_value_single(double *features, double *preds, HyperParameter &hp
     if (hp.num_threads == 1 || n < 256) {
         pred_value_single_(features, preds, hp, n);
     } else {
-#pragma omp parallel
+#pragma omp parallel num_threads(hp.num_threads)
         {
             int id = omp_get_thread_num();
-            int start = n / hp.num_threads * id;
+            int threads = omp_get_num_threads();
+            int start = n / threads * id;
             int samples;
-            if (id == hp.num_threads - 1) { samples = n - start; }
-            else { samples = n / hp.num_threads; }
+            if (id == threads - 1) { samples = n - start; }
+            else { samples = n / threads; }
             pred_value_single_(features + start * hp.inp_dim, preds + start, hp, samples);
         };
     }
@@ -77,13 +78,14 @@ void Tree::pred_value_multi(double *features, double *preds, HyperParameter &hp,
     if (hp.num_threads == 1 || n < 256) {
         pred_value_multi_(features, preds, hp, n);
     } else {
-#pragma omp parallel
+#pragma omp parallel num_threads(hp.num_threads)
         {
             int id = omp_get_thread_num();
-            int start = n / hp.num_threads * id;
+            int threads = omp_get_num_threads();
+            int start = n / threads * id;
             int samples;
-            if (id == hp.num_threads - 1) { samples = n - start; }
-            else { samples = n / hp.num_threads; }
+            if (id == threads - 1) { samples = n - start; }
+            else { samples = n / threads; }
             pred_value_multi_(features + start * hp.inp_dim, preds + start * hp.out_dim, hp, samples);
         };
     }

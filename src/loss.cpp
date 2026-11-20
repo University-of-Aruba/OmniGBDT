@@ -14,12 +14,22 @@ double mse_score(Dataset &data, int n, int out_dim = 1) {
     auto preds = data.Preds;
     auto labels = data.Label_double;
     int N = n * out_dim;
-    double s = 0.0f;
-#pragma omp parallel for schedule(static) reduction(+:s)
-    for (int i = 0; i < N; ++i) {
-        s += Sqr(preds[i] - labels[i]);
+    // Early stopping compares these scores. Use fixed blocks and combine them
+    // in row order so worker scheduling cannot turn a tie into an improvement.
+    const int block_size = 256;
+    const int blocks = 1 + (N - 1) / block_size;
+    vector<double> partial(blocks);
+#pragma omp parallel for schedule(static) if (blocks > 1)
+    for (int block = 0; block < blocks; ++block) {
+        const int begin = block * block_size;
+        const int end = begin + min(block_size, N - begin);
+        double sum = 0.0;
+        for (int i = begin; i < end; ++i) { sum += Sqr(preds[i] - labels[i]); }
+        partial[block] = sum;
     }
-    return sqrt(s / N);
+    double sum = 0.0;
+    for (double value : partial) { sum += value; }
+    return sqrt(sum / N);
 }
 
 void bce_grad(Dataset &data, double *g, double *h, int n, int out_dim) {
@@ -41,9 +51,8 @@ double bce_score(Dataset &data, int n, int out_dim) {
     double score = 0.0f;
 #pragma omp parallel for schedule(static) reduction(+:score)
     for (int i = 0; i < N; ++i) {
-        double t = log(1 + exp(-preds[i]));
-        if (labels[i] == 1) { score += t; }
-        else { score += t + preds[i]; }
+        double margin = labels[i] == 1 ? -preds[i] : preds[i];
+        score += max(margin, 0.0) + log1p(exp(-abs(margin)));
     }
     return score / N;
 }
@@ -178,14 +187,13 @@ double ce_score_column_thread(Dataset &data, int n, int out_dim, int threads, in
 
 double ce_score_column(Dataset &data, int n, int out_dim) {
     if (n < 32) {
-        return ce_score_column_thread(data, n, out_dim, 1, 0);
+        return ce_score_column_thread(data, n, out_dim, 1, 0) / n;
     } else {
-        int threads, id;
         double s = 0.0f;
 #pragma omp parallel reduction(+:s)
         {
-            threads = omp_get_num_threads();
-            id = omp_get_thread_num();
+            int threads = omp_get_num_threads();
+            int id = omp_get_thread_num();
             s += ce_score_column_thread(data, n, out_dim, threads, id);
         };
         return s / n;

@@ -1,6 +1,8 @@
 #include "io.h"
 #include <algorithm>
+#include <cerrno>
 #include <cctype>
+#include <set>
 #include <cstring>
 #include <sstream>
 
@@ -124,9 +126,10 @@ std::string zfill(const std::string &str, int width) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////
 
-void DumpTrees(vector<Tree> &trees, const vector<double> &base_scores, const char *path) {
+int DumpTrees(vector<Tree> &trees, const vector<double> &base_scores, const char *path) {
     ofstream outfile;
     outfile.open(path);
+    if (!outfile) { return errno ? errno : EIO; }
     if (!base_scores.empty()) {
         outfile << "BaseScore:";
         for (size_t i = 0; i < base_scores.size(); ++i) {
@@ -161,65 +164,101 @@ void DumpTrees(vector<Tree> &trees, const vector<double> &base_scores, const cha
         ++t;
     }
     outfile.close();
+    return outfile ? 0 : EIO;
 }
 
-void LoadTrees(vector<Tree> &trees, vector<double> &base_scores, const char *path) {
-    ifstream infile(path);
-    string line;
-    vector<string> contents;
-    vector<double> loaded_base_scores;
-    bool has_base_scores = false;
-    Tree tree_(false);
-    int t = 0, num;
-    while (getline(infile, line)) {
-        if (line.empty()) {
-            continue;
-        }
-        if (line.find("BaseScore:") == 0) {
-            contents.resize(0);
-            split(line.substr(10), contents, ",");
-            loaded_base_scores.resize(contents.size());
-            for (int i = 0; i < contents.size(); ++i) {
-                loaded_base_scores[i] = stod(contents[i]);
-            }
-            has_base_scores = true;
-            continue;
-        }
-        //Booster
-        if (line.find("Booster") == 0) {
-            if (t > 0) {
-                trees.push_back(tree_);
-                tree_.clear();
-            }
-            ++t;
+namespace {
+
+template <typename T>
+bool parse_number(const string &field, T &value) {
+    istringstream input(field);
+    if (!(input >> value)) { return false; }
+    input >> ws;
+    return input.eof();
+}
+
+bool valid_tree(const Tree &tree) {
+    if (tree.nonleaf.empty()) { return tree.leaf.size() == 1; }
+
+    set<int> visited;
+    vector<int> pending{-1};
+    while (!pending.empty()) {
+        const int id = pending.back();
+        pending.pop_back();
+        if (!visited.insert(id).second) { return false; }
+        if (id > 0) {
+            if (tree.leaf.count(id) == 0) { return false; }
         } else {
-            contents.resize(0);
-            line = lstrip(line, "\t");
-            split(line, contents, ",");
-            num = stoi(contents[0]);
-            if (num < 0) {
-                //nonleaf
-                NonLeafNode node;
-                node.parent = stoi(contents[1]);
-                node.left = stoi(contents[2]);
-                node.right = stoi(contents[3]);
-                node.column = stoi(contents[4]);
-                node.threshold = stod(contents[5]);
-                tree_.nonleaf.emplace(num, node);
-            } else {
-                //leaf
-                LeafNode node;
-                node.values.resize(contents.size() - 1);
-                for (int i = 1; i < contents.size(); ++i) { node.values[i - 1] = stod(contents[i]); }
-                tree_.leaf.emplace(num, node);
+            auto node = tree.nonleaf.find(id);
+            if (node == tree.nonleaf.end()) { return false; }
+            // Older bounded trees use zero for a branch that contributes nothing.
+            for (int child : {node->second.left, node->second.right}) {
+                if (child != 0) { pending.push_back(child); }
             }
         }
     }
-    if (!tree_.nonleaf.empty() || !tree_.leaf.empty()) {
-        trees.push_back(tree_);
+    return visited.size() == tree.nonleaf.size() + tree.leaf.size();
+}
+
+}  // namespace
+
+int LoadTrees(vector<Tree> &trees, vector<double> &base_scores, const char *path,
+              int inp_dim, int out_dim, int round_width) {
+    ifstream infile(path);
+    if (!infile) { return errno ? errno : EIO; }
+
+    // The original format wrote a zero-byte file for a zero-round model.
+    const bool legacy_empty = infile.peek() == ifstream::traits_type::eof();
+    vector<Tree> loaded;
+    vector<double> scores;
+    vector<string> fields;
+    string line;
+    while (getline(infile, line)) {
+        line = strip(line);
+        if (line.empty()) { continue; }
+        if (line.compare(0, 10, "BaseScore:") == 0) {
+            if (!loaded.empty() || !scores.empty()) { return -1; }
+            split(line.substr(10), fields, ",");
+            if (fields.size() != static_cast<size_t>(out_dim)) { return -1; }
+            scores.resize(out_dim);
+            for (int i = 0; i < out_dim; ++i) {
+                if (!parse_number(fields[i], scores[i])) { return -1; }
+            }
+        } else if (line.compare(0, 8, "Booster[") == 0) {
+            if (line != "Booster[" + to_string(loaded.size()) + "]:") { return -1; }
+            if (!loaded.empty() && !valid_tree(loaded.back())) { return -1; }
+            loaded.emplace_back();
+        } else {
+            if (loaded.empty()) { return -1; }
+            Tree &tree = loaded.back();
+            split(line, fields, ",");
+            int id;
+            if (!parse_number(fields[0], id) || id == 0) { return -1; }
+            if (id < 0) {
+                NonLeafNode node;
+                if (fields.size() != 6 || !parse_number(fields[1], node.parent) ||
+                    !parse_number(fields[2], node.left) || !parse_number(fields[3], node.right) ||
+                    !parse_number(fields[4], node.column) || !parse_number(fields[5], node.threshold) ||
+                    node.column < 0 || node.column >= inp_dim ||
+                    !tree.nonleaf.emplace(id, node).second) { return -1; }
+            } else {
+                if (fields.size() - 1 != static_cast<size_t>(out_dim)) { return -1; }
+                LeafNode node(out_dim);
+                node.parent = 0;  // The text format omits leaf parents.
+                for (int i = 0; i < out_dim; ++i) {
+                    if (!parse_number(fields[i + 1], node.values[i])) { return -1; }
+                }
+                if (!tree.leaf.emplace(id, node).second) { return -1; }
+            }
+        }
     }
-    if (has_base_scores) {
-        base_scores = loaded_base_scores;
-    }
-    infile.close();
+    if (infile.bad()) { return EIO; }
+    if ((!loaded.empty() && !valid_tree(loaded.back())) ||
+        (scores.empty() && loaded.empty() && !legacy_empty) ||
+        round_width <= 0 || loaded.size() % round_width != 0) { return -1; }
+
+    // Headerless legacy dumps use the base score configured by the caller.
+    if (!scores.empty()) { base_scores.swap(scores); }
+    trees.swap(loaded);
+    return 0;
 }

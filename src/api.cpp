@@ -43,8 +43,7 @@ OMNIGBDT_EXPORT void SetBin(BoosterUtils *foo, uint16_t *bins, double *values) {
 }
 
 OMNIGBDT_EXPORT void Boost(BoosterUtils *foo) {
-    foo->growth();
-    foo->update();
+    foo->boost();
 }
 
 OMNIGBDT_EXPORT void Train(BoosterUtils *foo, int n) {
@@ -60,11 +59,23 @@ OMNIGBDT_EXPORT void Predict(BoosterUtils *foo, double *features, double *preds,
 }
 
 OMNIGBDT_EXPORT void Dump(BoosterUtils *foo, const char *path) {
-    return foo->dump(path);
+    foo->dump(path);
 }
 
 OMNIGBDT_EXPORT void Load(BoosterUtils *foo, const char *path) {
-    return foo->load(path);
+    foo->load(path);
+}
+
+OMNIGBDT_EXPORT int GetTreeCount(BoosterUtils *foo) {
+    return foo->tree_count();
+}
+
+OMNIGBDT_EXPORT int DumpChecked(BoosterUtils *foo, const char *path) {
+    return foo->dump(path);
+}
+
+OMNIGBDT_EXPORT int LoadChecked(BoosterUtils *foo, const char *path, int round_width) {
+    return foo->load(path, round_width);
 }
 
 // GBDT for single outputs

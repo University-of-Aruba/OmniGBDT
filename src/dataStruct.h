@@ -47,8 +47,10 @@ struct Dataset {
     std::vector<int32_t> Orders;
     std::vector<int32_t> LeafIndex;
 
-    double *Label_double;
-    int32_t *Label_int32;
+    double *Label_double = nullptr;
+    int32_t *Label_int32 = nullptr;
+
+    bool has_labels() const { return num > 0 && (Label_double || Label_int32); }
 };
 
 struct HyperParameter {
@@ -143,20 +145,14 @@ class EarlyStoper {
 private:
     int k = 10;
     bool larger_better = true;
-    pair<double, int> info;
+    pair<double, int> info{0.0, -1};
 
 public:
     bool is_continue = true;
 
     EarlyStoper() {};
 
-    EarlyStoper(int n, bool state) : k(n), larger_better(state) {
-        if (state) {
-            info = make_pair(-1e10, 0);
-        } else {
-            info = make_pair(1e10, 0);
-        }
-    };
+    EarlyStoper(int n, bool state) : k(n), larger_better(state) {}
 
     inline pair<double, int> best() const {
         return info;
@@ -167,20 +163,10 @@ public:
     }
 
     inline void push(const pair<double, int> &x) {
-        if (larger_better) {
-            if (x > info) {
-                info = x;
-            }
-        } else {
-            if (x < info) {
-                info = x;
-            }
+        if (info.second < 0 || (larger_better ? x.first > info.first : x.first < info.first)) {
+            info = x;
         }
-        if (get<1>(x) < get<1>(info) + k) {
-            is_continue = true;
-        } else {
-            is_continue = false;
-        }
+        is_continue = x.second - info.second < k;
     }
 };
 

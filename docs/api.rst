@@ -6,9 +6,10 @@ This page summarizes the main Python entry points in OmniGBDT. For installation 
 Common data requirements
 ------------------------
 
-- feature arrays should be ``float64`` and two-dimensional with shape ``(n_samples, n_features)``
+- feature arrays must contain finite ``float64`` values and have shape ``(n_samples, n_features)``. Evaluation and prediction use the feature count registered with the model.
 - multi-output labels should be ``float64`` or ``int32`` and two-dimensional with shape ``(n_samples, out_dim)``
 - single-output labels should be contiguous ``float64`` or ``int32`` one-dimensional arrays
+- multiclass cross-entropy uses one integer-valued class index per sample, in the range ``0 <= label < out_dim``
 - For slicing one column out of a 2D label matrix, use ``np.ascontiguousarray(...)`` before passing it to ``SingleOutputGBDT``
 
 Core models
@@ -40,6 +41,8 @@ MultiOutputGBDT
       - ``X`` must be a 2D ``float64`` array
       - ``y`` may be ``None`` or a 2D ``float64`` / ``int32`` array with one column per output
 
+      Registering a new training split starts a fresh ensemble. An evaluation split can also be attached to an existing ensemble. Its prediction buffer includes all trees already fitted. An unlabeled evaluation split receives predictions and does not participate in early stopping.
+
    .. method:: train(num, objective=None, eval_metric=None, maximize=None)
 
       Train the model for ``num`` boosting rounds.
@@ -68,6 +71,7 @@ MultiOutputGBDT
       Load a text-dumped model from disk.
 
       ``path`` accepts ``str``, ``bytes``, and ``pathlib.Path``.
+      Configure the booster dimensions before loading. An unreadable file raises ``OSError`` and an incompatible model raises ``ValueError``. A failed load preserves the current ensemble.
 
    .. method:: _set_gh(g, h)
 
@@ -127,6 +131,7 @@ SingleOutputGBDT
 
       - with ``out_dim == 1``, the return value is a 1D array
       - with ``out_dim > 1``, the return value is shaped as ``(n_samples, out_dim)``
+      - for legacy ``train_multi`` ensembles, a positive ``num_trees`` limits the number of complete boosting rounds, each containing one tree per output
 
    .. method:: train_multi(num)
 

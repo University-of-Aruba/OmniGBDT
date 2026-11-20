@@ -214,7 +214,13 @@ def _configure_library(lib):
     Args:
         lib: Loaded ``ctypes.CDLL`` instance for OmniGBDT.
     """
-    lib.SetData.argtypes = [c_void_p, array_2d_uint16, array_2d_double, array_2d_double, c_int, c_bool]
+    # Native label and prediction buffers can have either one or two dimensions.
+    doubles = npct.ndpointer(dtype=np.float64, flags="C_CONTIGUOUS")
+    integers = npct.ndpointer(dtype=np.int32, flags="C_CONTIGUOUS")
+    lib.SetData.argtypes = [c_void_p, array_2d_uint16, array_2d_double, doubles, c_int, c_bool]
+    lib.SetLabelDouble.argtypes = [c_void_p, doubles, c_bool]
+    lib.SetLabelInt.argtypes = [c_void_p, integers, c_bool]
+    lib.Predict.argtypes = [c_void_p, array_2d_double, doubles, c_int, c_int]
     lib.SetBin.argtypes = [c_void_p, array_1d_uint16, array_1d_double]
     lib.SetGH.argtypes = [c_void_p, POINTER(c_double), POINTER(c_double)]
     lib.SetBaseScore.argtypes = [c_void_p, POINTER(c_double), c_int]
@@ -235,6 +241,12 @@ def _configure_library(lib):
     lib.Boost.restype = None
     lib.Train.restype = None
     lib.TrimTrees.restype = None
+    lib.GetTreeCount.argtypes = [c_void_p]
+    lib.GetTreeCount.restype = c_int
+    lib.LoadChecked.argtypes = [c_void_p, c_char_p, c_int]
+    lib.LoadChecked.restype = c_int
+    lib.DumpChecked.argtypes = [c_void_p, c_char_p]
+    lib.DumpChecked.restype = c_int
     lib.Dump.restype = None
     lib.Load.restype = None
 

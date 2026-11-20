@@ -37,7 +37,7 @@ General
   - Maximum number of histogram caches
 
 - ``max_bins``: default = ``128``, type = int
-  - Maximum number of bins for each input feature
+  - Maximum number of bins for each input feature, from 1 through 65,535
 
 - ``topk``: default = ``0``, type = int
   - Sparse split-finding parameter

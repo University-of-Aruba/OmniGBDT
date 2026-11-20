@@ -1,4 +1,14 @@
 def create_graph(file_name, tree_index=0, value_list=None):
+    """Build a Graphviz graph for one tree in a model dump.
+
+    Args:
+        file_name: Path to a dumped model.
+        tree_index: Zero-based tree index.
+        value_list: Output indices to show in each leaf. Defaults to the first.
+
+    Returns:
+        A graph with labeled split edges and leaf values.
+    """
     try:
         from graphviz import Digraph
     except ImportError as exc:
@@ -30,35 +40,15 @@ def create_graph(file_name, tree_index=0, value_list=None):
 
     graph = Digraph()
 
-    def add(node, parent):
-        if node < 0:
-            label = "X[{}] {:.4f}".format(info[node][3], info[node][4])
-            graph.node("NL-{}".format(node), label=label)
-            if info[parent][1] == node:
-                # left child
-                graph.edge("NL-{}".format(parent), "NL-{}".format(node), label="<=")
-            if info[parent][2] == node:
-                # right child
-                graph.edge("NL-{}".format(parent), "NL-{}".format(node), label=">")
-            add(info[node][1], node)
-            add(info[node][2], node)
-
+    for node, value in info.items():
         if node > 0:
-            if len(value_list) == 0:
-                label = "{:.4f}".format(info[node][0])
-            else:
-                label = ""
-                for v in value_list:
-                    label += "{:.4f}\n".format(info[node][v])
-                label = label.strip()
-
-            graph.node("L-{}".format(node), shape="record", label=label)
-            if info[parent][1] == node:
-                # left child
-                graph.edge("NL-{}".format(parent), "L-{}".format(node), label="<=")
-            if info[parent][2] == node:
-                # right child
-                graph.edge("NL-{}".format(parent), "L-{}".format(node), label=">")
-                
-    add(-1, -1)
+            indices = value_list if len(value_list) else [0]
+            label = "\n".join(f"{value[i]:.4f}" for i in indices)
+            graph.node(f"L-{node}", shape="record", label=label)
+        else:
+            graph.node(f"NL-{node}", label=f"X[{value[3]}] {value[4]:.4f}")
+            for child, edge_label in zip(value[1:3], ("<=", ">")):
+                if child != 0:
+                    prefix = "L" if child > 0 else "NL"
+                    graph.edge(f"NL-{node}", f"{prefix}-{child}", label=edge_label)
     return graph

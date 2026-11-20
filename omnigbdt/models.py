@@ -1,6 +1,11 @@
 from __future__ import annotations
 
 import ctypes
+import os
+from pathlib import Path
+import stat
+import tempfile
+from operator import index
 from typing import Callable
 
 import numpy as np
@@ -10,11 +15,6 @@ from .lib_utils import (
     Verbosity,
     _normalize_deterministic,
     _normalize_verbosity,
-    array_1d_double,
-    array_1d_int,
-    array_2d_double,
-    array_2d_int,
-    array_2d_uint16,
     default_params,
     load_lib,
 )
@@ -23,22 +23,10 @@ ObjectiveCallback = Callable[[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndar
 MetricCallback = Callable[[np.ndarray, np.ndarray], float]
 
 
-def _as_bytes(path):
-    """Convert a filesystem path into a byte string for the native API.
-
-    Args:
-        path: Path-like value accepted by the public Python wrapper.
-
-    Returns:
-        bytes: Encoded path ready for the native library.
-    """
-    if isinstance(path, bytes):
-        return path
-    return str(path).encode()
-
-
 class BoostUtils:
     """Shared Python helpers around the native OmniGBDT booster objects."""
+
+    _multi_output = False
 
     def __init__(self, lib=None, free_fn_name=None):
         """Initialize the shared native booster wrapper state.
@@ -50,6 +38,9 @@ class BoostUtils:
         self._boostnode = None
         self._free_fn_name = free_fn_name
         self._gh_buffers = None
+        self._input_width = None
+        self._active_out_dim = None
+        self._active_loss = None
         self._resolved_base_scores = np.ones(1, dtype=np.float64) * 0.0
         self.lib = lib if lib is not None else load_lib()
 
@@ -240,8 +231,10 @@ class BoostUtils:
         if self._boostnode is None:
             raise RuntimeError("Call set_data(...) before setting gradients and Hessians.")
 
+        self._validate_custom_objective_support()
         g_array = self._normalize_gh_array(g, name="g")
         h_array = self._normalize_gh_array(h, name="h")
+        self._check_booster()
         self._gh_buffers = (g_array, h_array)
         self.lib.SetGH(
             self._boostnode,
@@ -259,34 +252,123 @@ class BoostUtils:
         value = np.concatenate(bins, axis=0)
         self.lib.SetBin(self._boostnode, num, value)
 
-    def _set_label(self, x: np.array, is_train: bool):
-        """Register training or evaluation labels with the native booster.
+    def _check_features(self, features, width=None):
+        """Validate and normalize features before handing a pointer to native code.
 
         Args:
-            x: Label array.
-            is_train: Whether the labels belong to the training split.
+            features: Two-dimensional float64 feature array.
+            width: Expected number of columns, if already known.
 
-        Raises:
-            AssertionError: If the label array has an unsupported dtype or rank.
+        Returns:
+            numpy.ndarray: Contiguous feature matrix.
         """
-        if x.dtype == np.float64:
-            if x.ndim == 1:
-                self.lib.SetLabelDouble.argtypes = [ctypes.c_void_p, array_1d_double, ctypes.c_bool]
-            elif x.ndim == 2:
-                self.lib.SetLabelDouble.argtypes = [ctypes.c_void_p, array_2d_double, ctypes.c_bool]
-            else:
-                assert False, "label must be 1D or 2D array"
-            self.lib.SetLabelDouble(self._boostnode, x, is_train)
-        elif x.dtype == np.int32:
-            if x.ndim == 1:
-                self.lib.SetLabelInt.argtypes = [ctypes.c_void_p, array_1d_int, ctypes.c_bool]
-            elif x.ndim == 2:
-                self.lib.SetLabelInt.argtypes = [ctypes.c_void_p, array_2d_int, ctypes.c_bool]
-            else:
-                assert False, "label must be 1D or 2D array"
-            self.lib.SetLabelInt(self._boostnode, x, is_train)
+        x = np.asarray(features)
+        if x.ndim != 2 or x.dtype != np.float64 or x.shape[1] == 0:
+            raise ValueError("Features must be a 2D float64 array with at least one column.")
+        if width is not None and x.shape[1] != width:
+            raise ValueError(f"Expected {width} feature columns, received {x.shape[1]}.")
+        if not np.isfinite(x).all():
+            raise ValueError("Features must be finite.")
+        return np.ascontiguousarray(x)
+
+    def _check_label(self, label, n):
+        """Check label storage shared by built-in and custom objectives.
+
+        Args:
+            label: Array of training or evaluation labels.
+            n: Expected number of rows.
+
+        Returns:
+            numpy.ndarray: Contiguous label array.
+        """
+        y = np.asarray(label)
+        if y.ndim not in (1, 2) or y.shape[0] != n:
+            raise ValueError(f"Labels must be a 1D or 2D array with {n} rows.")
+        if y.ndim == 2 and y.shape[1] not in (1, self.out_dim):
+            raise ValueError(f"Expected 1 or {self.out_dim} label columns.")
+        if self.out_dim == 1:
+            y = y.reshape(n, 1) if self._multi_output else y.reshape(n)
+        if y.dtype not in (np.float64, np.int32):
+            raise ValueError("Label dtype must be float64 or int32.")
+        return np.ascontiguousarray(y)
+
+    def _register_label(self, y, is_train):
+        """Retain the array whose address is registered with the native dataset.
+
+        Args:
+            y: Native-compatible, contiguous labels.
+            is_train: Whether to register training labels.
+        """
+        setter = self.lib.SetLabelDouble if y.dtype == np.float64 else self.lib.SetLabelInt
+        setter(self._boostnode, y, is_train)
+        if is_train:
+            self._native_train_label = y
         else:
-            assert False, "dtype of label must be float64 or int32"
+            self._native_eval_label = y
+
+    def _set_label(self, x, is_train):
+        """Replace labels used by both native training and Python callbacks.
+
+        Args:
+            x: Float64 or int32 labels with one row per registered sample.
+            is_train: Whether to replace training labels.
+        """
+        self._check_booster()
+        data = getattr(self, "data" if is_train else "data_eval", None)
+        if data is None:
+            raise RuntimeError("Call set_data(...) for this split before setting labels.")
+        y = self._check_label(x, len(data))
+        self._register_label(y, is_train)
+        if is_train:
+            self.label = y
+        else:
+            self.label_eval = y
+
+    def _prepare_builtin_labels(self):
+        """Register correctly typed buffers for the configured native loss."""
+        if getattr(self, "label", None) is None:
+            raise ValueError("Built-in training requires training labels.")
+        loss = self._active_loss
+        for is_train in (True, False):
+            y = self.label if is_train else getattr(self, "label_eval", None)
+            if y is None:
+                continue
+            if loss in (b"ce", b"ce_column"):
+                if y.size != len(y):
+                    raise ValueError("Cross-entropy requires one class index per row.")
+                if ((y < 0) | (y >= self.out_dim) | (y != np.floor(y))).any():
+                    raise ValueError(f"Class indices must be integers in [0, {self.out_dim}).")
+            elif y.size != len(y) * self.out_dim:
+                raise ValueError(f"This loss requires {self.out_dim} target value(s) per row.")
+            elif loss == b"bce" and ((y != 0) & (y != 1)).any():
+                raise ValueError("Binary labels must be 0 or 1.")
+            if loss == b"mse" and not np.isfinite(y).all():
+                raise ValueError("Regression labels must be finite.")
+            if not self._multi_output and self.out_dim > 1 and y.ndim == 2:
+                y = y.T
+            dtype = np.float64 if loss == b"mse" else np.int32
+            self._register_label(np.ascontiguousarray(y, dtype=dtype), is_train)
+
+    def _check_booster(self):
+        """Require a live native model before invoking the C interface."""
+        if self._boostnode is None:
+            raise RuntimeError("Call set_data(...) or set_booster(...) before using the model.")
+        if self.out_dim != self._active_out_dim:
+            raise ValueError("out_dim has changed; configure a new booster before using this width.")
+
+    def _check_configuration(self, inp_dim):
+        """Validate dimensions and loss before constructing a native model.
+
+        Args:
+            inp_dim: Number of input features.
+        """
+        if index(inp_dim) <= 0 or index(self.out_dim) <= 0:
+            raise ValueError("Input and output dimensions must be positive.")
+        for name, minimum in (("min_samples", 1), ("num_threads", 1), ("topk", 0), ("hist_cache", 0)):
+            if index(self.params[name]) < minimum:
+                raise ValueError(f"{name} must be at least {minimum}.")
+        if self.params["loss"] not in (b"mse", b"bce", b"ce", b"ce_column"):
+            raise ValueError("loss must be one of b'mse', b'bce', b'ce', b'ce_column'.")
 
     def _callback_input(self, array):
         """Create a read-only callback view of a model buffer.
@@ -333,11 +415,10 @@ class BoostUtils:
         """Validate model-specific preconditions for the custom objective path."""
         return None
 
-    def _validate_custom_training_configuration(self, num, objective, eval_metric, maximize):
+    def _validate_custom_training_configuration(self, objective, eval_metric, maximize):
         """Validate public custom-objective training arguments.
 
         Args:
-            num: Number of boosting rounds.
             objective: Custom objective callback.
             eval_metric: Optional custom metric callback.
             maximize: Optional flag indicating whether larger metric values are better.
@@ -361,8 +442,13 @@ class BoostUtils:
             if maximize is None:
                 raise ValueError("Custom early stopping requires maximize to be set explicitly.")
         self._validate_custom_objective_support()
-        if num < 0:
-            raise ValueError("num must be greater than or equal to 0.")
+        splits = [(self.label, self.preds_train)]
+        if self._has_eval_labels():
+            splits.append((self.label_eval, self.preds_eval))
+        for labels, preds in splits:
+            class_indices = self._active_loss in (b"ce", b"ce_column") and labels.size == len(labels)
+            if labels.shape != preds.shape and not class_indices:
+                raise ValueError("Custom objective labels must match the prediction shape.")
 
     def _show_custom_metrics(self, round_index, train_metric, eval_metric):
         """Print Python-side custom metric logging using native-style formatting.
@@ -397,13 +483,110 @@ class BoostUtils:
         """
         self.lib.TrimTrees(self._boostnode, num_trees)
 
-    def _refresh_prediction_cache(self):
-        """Rebuild cached train and eval predictions after structural changes.
+    def _new_predictions(self, n):
+        """Allocate a native prediction buffer initialized with the base scores.
 
-        Raises:
-            NotImplementedError: Always. Subclasses provide the actual replay logic.
+        Args:
+            n: Number of rows in the split.
+
+        Returns:
+            numpy.ndarray: Buffer in the native booster's layout.
         """
-        raise NotImplementedError
+        shape = (n, self.out_dim) if self._multi_output else n * self.out_dim
+        preds = np.empty(shape, dtype=np.float64)
+        self._fill_prediction_buffer(preds)
+        return preds
+
+    def _predict_into(self, x, preds, num_trees=0):
+        """Add tree predictions to an initialized native-layout buffer.
+
+        Args:
+            x: Contiguous feature matrix of the configured width.
+            preds: Initialized native prediction buffer.
+            num_trees: Tree limit, or zero for the full ensemble.
+        """
+        if not self._multi_output and self.out_dim > 1:
+            self.lib.PredictMulti(self._boostnode, x, preds, len(x), self.out_dim, num_trees)
+        else:
+            self.lib.Predict(self._boostnode, x, preds, len(x), num_trees)
+
+    def _refresh_prediction_cache(self):
+        """Replay the current ensemble into registered prediction buffers."""
+        if hasattr(self, "preds_train"):
+            self._fill_prediction_buffer(self.preds_train)
+            self._predict_into(self.data, self.preds_train)
+        if hasattr(self, "preds_eval"):
+            self._fill_prediction_buffer(self.preds_eval)
+            self._predict_into(self.data_eval, self.preds_eval)
+
+    def set_data(self, train_set: tuple = None, eval_set: tuple = None):
+        """Register training and optional evaluation data.
+
+        Args:
+            train_set: Optional (features, labels) pair that starts a fresh model.
+            eval_set: Optional (features, labels) pair for evaluation.
+        """
+        width = self._input_width
+        if train_set is not None:
+            x, y = train_set
+            x = self._check_features(x)
+            if not len(x):
+                raise ValueError("Training requires at least one sample.")
+            y = None if y is None else self._check_label(y, len(x))
+            width = x.shape[1]
+        if eval_set is not None:
+            if train_set is None:
+                self._check_booster()
+            x_eval, y_eval = eval_set
+            x_eval = self._check_features(x_eval, width)
+            y_eval = None if y_eval is None else self._check_label(y_eval, len(x_eval))
+
+        if train_set is not None:
+            self._check_configuration(width)
+            base_scores = self._resolve_base_scores(y)
+            bins, maps = get_bins_maps(x, self.params["max_bins"], self.params["num_threads"])
+            if self._multi_output:
+                self.set_booster(width, self.out_dim, base_scores=base_scores)
+            else:
+                self.set_booster(width, base_scores=base_scores)
+            self.bins, self.maps = bins, np.ascontiguousarray(maps.T)
+            self._set_bin(bins)
+            self.data, self.label = x, y
+            self.preds_train = self._new_predictions(len(x))
+            self.lib.SetData(self._boostnode, self.maps, x, self.preds_train, len(x), True)
+            if y is not None:
+                self._register_label(y, True)
+
+        if eval_set is not None:
+            self.data_eval, self.label_eval = x_eval, y_eval
+            self.preds_eval = self._new_predictions(len(x_eval))
+            self._predict_into(x_eval, self.preds_eval)
+            # Evaluation traverses raw features and does not read histogram maps.
+            eval_maps = np.empty((0, 0), dtype=np.uint16)
+            self.lib.SetData(self._boostnode, eval_maps, x_eval, self.preds_eval, len(x_eval), False)
+            self._native_eval_label = None
+            if y_eval is not None:
+                self._register_label(y_eval, False)
+
+    def predict(self, x, num_trees=0):
+        """Predict on a feature matrix using all or a prefix of the ensemble.
+
+        Args:
+            x: Two-dimensional float64 feature matrix.
+            num_trees: Nonnegative tree limit, or zero for the full ensemble.
+
+        Returns:
+            numpy.ndarray: Predictions in row-major sample order.
+        """
+        self._check_booster()
+        x = self._check_features(x, self._input_width)
+        if index(num_trees) < 0:
+            raise ValueError("num_trees must be nonnegative.")
+        preds = self._new_predictions(len(x))
+        self._predict_into(x, preds, num_trees)
+        if not self._multi_output and self.out_dim > 1:
+            return preds.reshape((self.out_dim, len(x))).T
+        return preds
 
     def _train_custom(self, num, objective, eval_metric=None, maximize=None):
         """Run the Python-managed custom objective training loop.
@@ -414,8 +597,9 @@ class BoostUtils:
             eval_metric: Optional callback returning a scalar metric.
             maximize: Whether larger evaluation metric values are better.
         """
-        self._validate_custom_training_configuration(num, objective, eval_metric, maximize)
+        self._validate_custom_training_configuration(objective, eval_metric, maximize)
 
+        initial_trees = self.lib.GetTreeCount(self._boostnode)
         best_metric = None
         best_round = None
         should_stop_early = False
@@ -459,13 +643,16 @@ class BoostUtils:
                 break
 
         if should_stop_early and best_round is not None:
-            self._trim_trees(best_round + 1)
+            self._trim_trees(initial_trees + best_round + 1)
             self._refresh_prediction_cache()
 
         self._show_custom_summary(best_metric, best_round)
 
     def boost(self):
         """Grow a single tree using the currently registered gradients and Hessians."""
+        self._check_booster()
+        if self._gh_buffers is None:
+            raise RuntimeError("Call _set_gh(...) before boost().")
         self.lib.Boost(self._boostnode)
 
     def dump(self, path):
@@ -474,7 +661,30 @@ class BoostUtils:
         Args:
             path: Output path for the dumped model.
         """
-        self.lib.Dump(self._boostnode, _as_bytes(path))
+        self._check_booster()
+        destination = Path(os.fsdecode(path)).resolve()
+        try:
+            mode = destination.stat().st_mode
+        except FileNotFoundError:
+            mode = None
+
+        if mode is not None and not stat.S_ISREG(mode):
+            error = self.lib.DumpChecked(self._boostnode, os.fsencode(destination))
+            if error:
+                raise OSError(error, os.strerror(error), path)
+            return
+        if mode is not None:
+            # Respect the existing file's write permissions before replacing it.
+            os.close(os.open(destination, os.O_WRONLY))
+
+        with tempfile.TemporaryDirectory(dir=destination.parent) as staging:
+            staged = Path(staging) / "model"
+            error = self.lib.DumpChecked(self._boostnode, os.fsencode(staged))
+            if error:
+                raise OSError(error, os.strerror(error), path)
+            if mode is not None:
+                staged.chmod(stat.S_IMODE(mode))
+            os.replace(staged, destination)
 
     def load(self, path):
         """Load a text-dumped model from disk.
@@ -482,8 +692,15 @@ class BoostUtils:
         Args:
             path: Path to a text model generated by ``dump``.
         """
-        self.lib.Load(self._boostnode, _as_bytes(path))
+        self._check_booster()
+        round_width = 1 if self._multi_output else self.out_dim
+        error = self.lib.LoadChecked(self._boostnode, os.fsencode(path), round_width)
+        if error < 0:
+            raise ValueError(f"Invalid or incompatible OmniGBDT model: {path!r}")
+        if error:
+            raise OSError(error, os.strerror(error), path)
         self._sync_base_scores_from_native()
+        self._refresh_prediction_cache()
 
     def train(self, num, objective=None, eval_metric=None, maximize=None):
         """Train the booster with either a built-in loss or a custom objective.
@@ -494,7 +711,20 @@ class BoostUtils:
             eval_metric: Optional scalar metric callback for Python-managed training.
             maximize: Whether larger evaluation metric values are better.
         """
+        self._check_booster()
+        if not hasattr(self, "preds_train"):
+            raise RuntimeError("Call set_data(...) with training data before train(...).")
+        if index(num) < 0:
+            raise ValueError("num must be nonnegative.")
         if objective is None:
+            if not self._multi_output and self.out_dim != 1:
+                raise ValueError("Use train_multi(...) for legacy multi-class training.")
+            if self._multi_output and self._active_loss == b"ce_column":
+                raise ValueError("Use b'ce' for row-major multi-output training.")
+            self._prepare_builtin_labels()
+            self._gh_buffers = None
+            if num == 0:
+                return
             self.lib.Train(self._boostnode, num)
             return
         self._train_custom(num, objective, eval_metric=eval_metric, maximize=maximize)
@@ -510,6 +740,12 @@ class BoostUtils:
             pass
         finally:
             self._boostnode = None
+            self._input_width = None
+            self._active_out_dim = None
+            self._active_loss = None
+            for name in ("data", "label", "preds_train", "data_eval", "label_eval",
+                         "preds_eval", "maps", "bins", "_native_train_label", "_native_eval_label"):
+                self.__dict__.pop(name, None)
 
     def __del__(self):
         """Release the native booster during garbage collection."""
@@ -528,14 +764,16 @@ class SingleOutputGBDT(BoostUtils):
             params: Optional parameter overrides.
         """
         super().__init__(lib=lib, free_fn_name="SingleFree")
-        self.out_dim = out_dim
+        self.out_dim = index(out_dim)
+        if self.out_dim <= 0:
+            raise ValueError("out_dim must be positive.")
         user_params = {} if params is None else dict(params)
-        self.params = default_params()
-        self.params.update(user_params)
+        defaults = default_params()
+        self.params = {**defaults, **user_params}
         self.params["deterministic"] = _normalize_deterministic(user_params, self.params)
         self.params["verbosity"] = _normalize_verbosity(user_params, self.params)
         self.params["verbose"] = self.params["verbosity"] >= int(Verbosity.FULL)
-        self.__dict__.update(self.params)
+        self.__dict__.update((name, self.params[name]) for name in defaults)
         self._apply_resolved_base_scores(self._resolve_base_scores())
 
     def _base_score_count(self):
@@ -558,16 +796,6 @@ class SingleOutputGBDT(BoostUtils):
                 "Use MultiOutputGBDT for multi-output custom training."
             )
 
-    def _refresh_prediction_cache(self):
-        """Replay the current ensemble into cached train and eval prediction buffers."""
-        self._fill_prediction_buffer(self.preds_train)
-        self.lib.Predict.argtypes = [ctypes.c_void_p, array_2d_double, array_1d_double, ctypes.c_int, ctypes.c_int]
-        self.lib.Predict(self._boostnode, self.data, self.preds_train, len(self.data), 0)
-
-        if hasattr(self, "preds_eval"):
-            self._fill_prediction_buffer(self.preds_eval)
-            self.lib.Predict(self._boostnode, self.data_eval, self.preds_eval, len(self.data_eval), 0)
-
     def set_booster(self, inp_dim, base_scores=None):
         """Create the native single-output booster for a fixed input width.
 
@@ -575,11 +803,10 @@ class SingleOutputGBDT(BoostUtils):
             inp_dim: Number of input features.
             base_scores: Optional resolved base-score vector.
         """
-        resolved_base_scores = self._resolve_base_scores() if base_scores is None else base_scores
-        resolved_base_scores = np.ascontiguousarray(resolved_base_scores, dtype=np.float64)
-        self._apply_resolved_base_scores(resolved_base_scores)
-        self.close()
-        self._boostnode = self.lib.SingleNew(
+        self._check_configuration(inp_dim)
+        resolved_base_scores = (self._resolve_base_scores() if base_scores is None
+                                else self._normalize_base_score_param(base_scores))
+        new_booster = self.lib.SingleNew(
             inp_dim,
             self.params["loss"],
             self.params["max_depth"],
@@ -596,45 +823,13 @@ class SingleOutputGBDT(BoostUtils):
             self.params["verbosity"],
             self.params["hist_cache"],
         )
+        self.close()
+        self._boostnode = new_booster
+        self._input_width = inp_dim
+        self._active_out_dim = self.out_dim
+        self._active_loss = self.params["loss"]
+        self._apply_resolved_base_scores(resolved_base_scores)
         self._set_native_base_scores(resolved_base_scores)
-
-    def set_data(self, train_set: tuple = None, eval_set: tuple = None):
-        """Register training and optional evaluation data.
-
-        Args:
-            train_set: Optional ``(X, y)`` training tuple.
-            eval_set: Optional ``(X, y)`` evaluation tuple.
-        """
-        if train_set is not None:
-            self.data, self.label = train_set
-            resolved_base_scores = self._resolve_base_scores(self.label)
-            self.set_booster(self.data.shape[-1], base_scores=resolved_base_scores)
-            self.bins, self.maps = get_bins_maps(self.data, self.max_bins, self.num_threads)
-            self._set_bin(self.bins)
-            self.maps = np.ascontiguousarray(self.maps.transpose())
-            self.preds_train = np.empty(len(self.data) * self.out_dim, dtype="float64")
-            self._fill_prediction_buffer(self.preds_train)
-
-            self.lib.SetData.argtypes = [
-                ctypes.c_void_p,
-                array_2d_uint16,
-                array_2d_double,
-                array_1d_double,
-                ctypes.c_int,
-                ctypes.c_bool,
-            ]
-            self.lib.SetData(self._boostnode, self.maps, self.data, self.preds_train, len(self.data), True)
-            if self.label is not None:
-                self._set_label(self.label, True)
-
-        if eval_set is not None:
-            self.data_eval, self.label_eval = eval_set
-            self.preds_eval = np.empty(len(self.data_eval) * self.out_dim, dtype="float64")
-            self._fill_prediction_buffer(self.preds_eval)
-            maps = np.zeros((1, 1), "uint16")
-            self.lib.SetData(self._boostnode, maps, self.data_eval, self.preds_eval, len(self.data_eval), False)
-            if self.label_eval is not None:
-                self._set_label(self.label_eval, False)
 
     def train_multi(self, num):
         """Train the legacy multi-class helper path.
@@ -642,38 +837,31 @@ class SingleOutputGBDT(BoostUtils):
         Args:
             num: Number of boosting rounds.
         """
-        assert self.out_dim > 1, "out_dim must bigger than 1"
+        self._check_booster()
+        if self.out_dim <= 1:
+            raise ValueError("train_multi requires out_dim > 1.")
+        if self._active_loss == b"ce":
+            raise ValueError("Use b'ce_column' for column-major train_multi(...).")
+        if index(num) < 0:
+            raise ValueError("num must be nonnegative.")
+        self._prepare_builtin_labels()
+        self._gh_buffers = None
+        if num == 0:
+            return
         self.lib.TrainMulti(self._boostnode, num, self.out_dim)
-
-    def predict(self, x, num_trees=0):
-        """Predict from the current single-output ensemble.
-
-        Args:
-            x: Feature matrix.
-            num_trees: Optional tree limit. ``0`` means all trees.
-
-        Returns:
-            numpy.ndarray: Prediction vector or matrix depending on ``out_dim``.
-        """
-        preds = np.empty(len(x) * self.out_dim, dtype="float64")
-        self._fill_prediction_buffer(preds)
-
-        if self.out_dim == 1:
-            self.lib.Predict.argtypes = [ctypes.c_void_p, array_2d_double, array_1d_double, ctypes.c_int, ctypes.c_int]
-            self.lib.Predict(self._boostnode, x, preds, len(x), num_trees)
-            return preds
-
-        self.lib.PredictMulti(self._boostnode, x, preds, len(x), self.out_dim, num_trees)
-        preds = np.reshape(preds, (self.out_dim, len(x)))
-        return np.transpose(preds)
 
     def reset(self):
         """Clear learned trees and reset cached predictions to ``base_score``."""
+        self._check_booster()
         self.lib.Reset(self._boostnode)
+        if self.out_dim > 1:
+            self._refresh_prediction_cache()
 
 
 class MultiOutputGBDT(BoostUtils):
     """Python wrapper around the native multi-output OmniGBDT booster."""
+
+    _multi_output = True
 
     def __init__(self, lib=None, out_dim=1, params=None):
         """Initialize the multi-output booster wrapper.
@@ -684,14 +872,16 @@ class MultiOutputGBDT(BoostUtils):
             params: Optional parameter overrides.
         """
         super().__init__(lib=lib, free_fn_name="MultiFree")
-        self.out_dim = out_dim
+        self.out_dim = index(out_dim)
+        if self.out_dim <= 0:
+            raise ValueError("out_dim must be positive.")
         user_params = {} if params is None else dict(params)
-        self.params = default_params()
-        self.params.update(user_params)
+        defaults = default_params()
+        self.params = {**defaults, **user_params}
         self.params["deterministic"] = _normalize_deterministic(user_params, self.params)
         self.params["verbosity"] = _normalize_verbosity(user_params, self.params)
         self.params["verbose"] = self.params["verbosity"] >= int(Verbosity.FULL)
-        self.__dict__.update(self.params)
+        self.__dict__.update((name, self.params[name]) for name in defaults)
         self._apply_resolved_base_scores(self._resolve_base_scores())
 
     def _base_score_count(self):
@@ -702,16 +892,6 @@ class MultiOutputGBDT(BoostUtils):
         """
         return self.out_dim
 
-    def _refresh_prediction_cache(self):
-        """Replay the current ensemble into cached train and eval prediction buffers."""
-        self._fill_prediction_buffer(self.preds_train)
-        self.lib.Predict.argtypes = [ctypes.c_void_p, array_2d_double, array_2d_double, ctypes.c_int, ctypes.c_int]
-        self.lib.Predict(self._boostnode, self.data, self.preds_train, len(self.data), 0)
-
-        if hasattr(self, "preds_eval"):
-            self._fill_prediction_buffer(self.preds_eval)
-            self.lib.Predict(self._boostnode, self.data_eval, self.preds_eval, len(self.data_eval), 0)
-
     def set_booster(self, inp_dim, out_dim, base_scores=None):
         """Create the native multi-output booster for a fixed input width.
 
@@ -720,11 +900,12 @@ class MultiOutputGBDT(BoostUtils):
             out_dim: Number of output columns.
             base_scores: Optional resolved base-score vector.
         """
-        resolved_base_scores = self._resolve_base_scores() if base_scores is None else base_scores
-        resolved_base_scores = np.ascontiguousarray(resolved_base_scores, dtype=np.float64)
-        self._apply_resolved_base_scores(resolved_base_scores)
-        self.close()
-        self._boostnode = self.lib.MultiNew(
+        if out_dim != self.out_dim:
+            raise ValueError("set_booster output width must match the model's out_dim.")
+        self._check_configuration(inp_dim)
+        resolved_base_scores = (self._resolve_base_scores() if base_scores is None
+                                else self._normalize_base_score_param(base_scores))
+        new_booster = self.lib.MultiNew(
             inp_dim,
             out_dim,
             self.params["topk"],
@@ -744,57 +925,10 @@ class MultiOutputGBDT(BoostUtils):
             self.params["verbosity"],
             self.params["hist_cache"],
         )
+        self.close()
+        self._boostnode = new_booster
+        self._input_width = inp_dim
+        self._active_out_dim = self.out_dim
+        self._active_loss = self.params["loss"]
+        self._apply_resolved_base_scores(resolved_base_scores)
         self._set_native_base_scores(resolved_base_scores)
-
-    def set_data(self, train_set: tuple = None, eval_set: tuple = None):
-        """Register training and optional evaluation data.
-
-        Args:
-            train_set: Optional ``(X, y)`` training tuple.
-            eval_set: Optional ``(X, y)`` evaluation tuple.
-        """
-        if train_set is not None:
-            self.data, self.label = train_set
-            resolved_base_scores = self._resolve_base_scores(self.label)
-            self.set_booster(self.data.shape[-1], self.out_dim, base_scores=resolved_base_scores)
-            self.bins, self.maps = get_bins_maps(self.data, self.max_bins, self.num_threads)
-            self._set_bin(self.bins)
-            self.maps = np.ascontiguousarray(self.maps.transpose())
-            self.preds_train = np.empty((len(self.data), self.out_dim), dtype="float64")
-            self._fill_prediction_buffer(self.preds_train)
-            self.lib.SetData.argtypes = [
-                ctypes.c_void_p,
-                array_2d_uint16,
-                array_2d_double,
-                array_2d_double,
-                ctypes.c_int,
-                ctypes.c_bool,
-            ]
-            self.lib.SetData(self._boostnode, self.maps, self.data, self.preds_train, len(self.data), True)
-            if self.label is not None:
-                self._set_label(self.label, True)
-
-        if eval_set is not None:
-            self.data_eval, self.label_eval = eval_set
-            self.preds_eval = np.empty((len(self.data_eval), self.out_dim), dtype="float64")
-            self._fill_prediction_buffer(self.preds_eval)
-            maps = np.zeros((1, 1), "uint16")
-            self.lib.SetData(self._boostnode, maps, self.data_eval, self.preds_eval, len(self.data_eval), False)
-            if self.label_eval is not None:
-                self._set_label(self.label_eval, False)
-
-    def predict(self, x, num_trees=0):
-        """Predict from the current multi-output ensemble.
-
-        Args:
-            x: Feature matrix.
-            num_trees: Optional tree limit. ``0`` means all trees.
-
-        Returns:
-            numpy.ndarray: Prediction matrix with shape ``(n_samples, out_dim)``.
-        """
-        preds = np.empty((len(x), self.out_dim), dtype="float64")
-        self._fill_prediction_buffer(preds)
-        self.lib.Predict.argtypes = [ctypes.c_void_p, array_2d_double, array_2d_double, ctypes.c_int, ctypes.c_int]
-        self.lib.Predict(self._boostnode, x, preds, len(x), num_trees)
-        return preds

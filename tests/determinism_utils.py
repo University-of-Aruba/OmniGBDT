@@ -13,7 +13,7 @@ from omnigbdt import MultiOutputGBDT, SingleOutputGBDT, Verbosity
 
 
 UCI_STOCK_PORTFOLIO_MIRROR_URL = (
-    "https://cdn.uci-ics-mlr-prod.aws.uci.edu/390/stock%2Bportfolio%2Bperformance.zip"
+    "https://archive.ics.uci.edu/static/public/390/stock+portfolio+performance.zip"
 )
 UCI_STOCK_PORTFOLIO_WORKBOOK_NAME = "stock portfolio performance data set.xlsx"
 UCI_STOCK_PORTFOLIO_FEATURE_COLUMNS = [

@@ -104,12 +104,36 @@ class _WrapperMixin:
     """Shared helper methods for sklearn-compatible OmniGBDT estimators."""
 
     def close(self):
-        """Release the wrapped native booster, if one is present."""
-        booster = getattr(self, "booster_", None)
+        """Release the native booster and clear the fitted estimator attributes."""
+        booster = self.__dict__.pop("booster_", None)
         if booster is not None:
             booster.close()
-        if hasattr(self, "booster_"):
-            del self.booster_
+        self.__dict__.pop("n_features_in_", None)
+        self.__dict__.pop("n_outputs_", None)
+
+    def _fit_booster(self, booster, x_train, y_train, eval_set):
+        """Train a candidate booster and publish it after a successful fit.
+
+        Args:
+            booster: New native booster for this fit.
+            x_train: Normalized training feature matrix.
+            y_train: Normalized training target vector or matrix.
+            eval_set: Optional normalized evaluation tuple.
+        """
+        try:
+            booster.set_data((x_train, y_train), eval_set)
+            booster.train(
+                self.num_rounds,
+                objective=self.objective,
+                eval_metric=self.eval_metric,
+                maximize=self.maximize,
+            )
+        except BaseException:
+            booster.close()
+            raise
+        self.close()
+        self.booster_ = booster
+        self.n_features_in_ = x_train.shape[1]
 
     def dump(self, path):
         """Dump the fitted booster to disk.
@@ -246,16 +270,8 @@ class SingleOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
             raise ValueError("X and y must contain the same number of rows.")
 
         native_eval_set = _as_eval_set(eval_set, _as_single_target)
-        self.close()
-        self.booster_ = SingleOutputGBDT(lib=self.lib, params=self._native_params())
-        self.booster_.set_data((x_train, y_train), native_eval_set)
-        self.booster_.train(
-            self.num_rounds,
-            objective=self.objective,
-            eval_metric=self.eval_metric,
-            maximize=self.maximize,
-        )
-        self.n_features_in_ = x_train.shape[1]
+        booster = SingleOutputGBDT(lib=self.lib, params=self._native_params())
+        self._fit_booster(booster, x_train, y_train, native_eval_set)
         return self
 
     def predict(self, X):
@@ -409,20 +425,12 @@ class MultiOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
             raise ValueError("X and y must contain the same number of rows.")
 
         native_eval_set = _as_eval_set(eval_set, _as_multi_target)
-        self.close()
-        self.booster_ = MultiOutputGBDT(
+        booster = MultiOutputGBDT(
             lib=self.lib,
             out_dim=y_train.shape[1],
             params=self._native_params(),
         )
-        self.booster_.set_data((x_train, y_train), native_eval_set)
-        self.booster_.train(
-            self.num_rounds,
-            objective=self.objective,
-            eval_metric=self.eval_metric,
-            maximize=self.maximize,
-        )
-        self.n_features_in_ = x_train.shape[1]
+        self._fit_booster(booster, x_train, y_train, native_eval_set)
         self.n_outputs_ = y_train.shape[1]
         return self
 

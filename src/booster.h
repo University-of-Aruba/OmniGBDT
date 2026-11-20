@@ -48,19 +48,17 @@ public:
 
     void showloss(double, int);
 
-    void load(const char *path) {
-        trees.clear();
-        LoadTrees(trees, hp.base_scores, path);
-        if (!hp.base_scores.empty()) {
-            hp.base_score = hp.base_scores[0];
-        }
-    }
+    int tree_count() const { return static_cast<int>(trees.size()); }
 
-    void dump(const char *path) { DumpTrees(trees, hp.base_scores, path); }
+    int load(const char *path, int round_width = 1);
+
+    int dump(const char *path) { return DumpTrees(trees, hp.base_scores, path); }
 
     virtual void update() = 0;
 
-    virtual void growth() = 0;
+    void growth();
+
+    void boost();
 
     virtual void train(int) = 0;
 
@@ -69,6 +67,7 @@ public:
 protected:
     Tree tree;
     vector<Tree> trees;
+    vector<double> configured_base_scores;
     std::vector<uint16_t> bin_nums;
     std::vector<std::vector<double>> bin_values;
     SplitInfo meta;
@@ -81,6 +80,12 @@ protected:
     Objective obj;
 
     void init_preds(double *, int) const;
+    void queue_split(int leaf, int depth, vector<int32_t> &order, vector<Histogram> &hist);
+    virtual LeafNode fit_leaf(Histogram &hist, int parent) = 0;
+    virtual void hist_all(vector<int32_t> &, vector<Histogram> &) = 0;
+    virtual void boost_all(vector<Histogram> &) = 0;
+
+    void restore_best(int tree_count, int round_width = 1);
 };
 
 
@@ -92,8 +97,6 @@ public:
                   int, int, int);
 
     void update() override;
-
-    void growth() override;
 
     void train(int) override;
 
@@ -110,13 +113,13 @@ private:
 
     void get_score_opt(Histogram &, double &, double &);
 
-    void hist_all(vector<int32_t> &, vector<Histogram> &);
+    void hist_all(vector<int32_t> &, vector<Histogram> &) override;
 
     SplitInfo boost_column(Histogram &, int);
 
-    void boost_all(vector<Histogram> &);
+    void boost_all(vector<Histogram> &) override;
 
-    void build_tree_best();
+    LeafNode fit_leaf(Histogram &hist, int parent) override;
 };
 
 
@@ -128,8 +131,6 @@ public:
                  int, bool, int, int);
 
     void update() override;
-
-    void growth() override;
 
     void train(int) override;
 
@@ -145,7 +146,7 @@ private:
 
     void get_score_opt(Histogram &, vector<pair<double, int>> &, vector<double> &, double &);
 
-    void hist_all(vector<int32_t> &, vector<Histogram> &);
+    void hist_all(vector<int32_t> &, vector<Histogram> &) override;
 
     SplitInfo boost_column_full(Histogram &, int);
 
@@ -153,9 +154,9 @@ private:
 
     SplitInfo boost_column_topk_one_side(Histogram &, int);
 
-    void boost_all(vector<Histogram> &);
+    void boost_all(vector<Histogram> &) override;
 
-    void build_tree_best();
+    LeafNode fit_leaf(Histogram &hist, int parent) override;
 };
 
 #endif //MGBDT_BOOSTER_H

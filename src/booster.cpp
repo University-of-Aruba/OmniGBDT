@@ -4,6 +4,16 @@ namespace {
 
 constexpr double kSplitTieEpsilon = 1e-12;
 
+// Loss and histogram kernels inherit their calling task's OpenMP team size.
+class ScopedTeamSize {
+    const int previous;
+public:
+    explicit ScopedTeamSize(int requested) : previous(omp_get_max_threads()) {
+        omp_set_num_threads(requested);
+    }
+    ~ScopedTeamSize() { omp_set_num_threads(previous); }
+};
+
 bool is_valid_split(const SplitInfo &split) {
     return split.column >= 0;
 }
@@ -89,9 +99,8 @@ void BoosterUtils::set_base_score(double *x, int n) {
         hp.base_scores.assign(x, x + n);
     }
 
-    if (!hp.base_scores.empty()) {
-        hp.base_score = hp.base_scores[0];
-    }
+    hp.base_score = hp.base_scores.front();
+    configured_base_scores = hp.base_scores;
 }
 
 int BoosterUtils::base_score_size() const {
@@ -123,7 +132,36 @@ void BoosterUtils::trim_trees(int num_trees) {
     }
 }
 
+void BoosterUtils::restore_best(int tree_count, int round_width) {
+    trim_trees(tree_count);
+    for (Dataset *data : {&Train, &Eval}) {
+        if (data->num == 0) { continue; }
+        init_preds(data->Preds, data->num * round_width);
+        for (size_t i = 0; i < trees.size(); ++i) {
+            if (hp.out_dim > 1) {
+                trees[i].pred_value_multi(data->Features, data->Preds, hp, data->num);
+            } else {
+                double *column = data->Preds + (i % round_width) * data->num;
+                trees[i].pred_value_single(data->Features, column, hp, data->num);
+            }
+        }
+    }
+}
+
+int BoosterUtils::load(const char *path, int round_width) {
+    auto scores = configured_base_scores;
+    int status = LoadTrees(trees, scores, path, hp.inp_dim, hp.out_dim, round_width);
+    if (status == 0) {
+        hp.base_scores.swap(scores);
+        hp.base_score = hp.base_scores.front();
+    }
+    return status;
+}
+
 void BoosterUtils::set_data(uint16_t *x, double *y, double *z, int n, bool is_train) {
+    Dataset &data = is_train ? Train : Eval;
+    data.Label_double = nullptr;
+    data.Label_int32 = nullptr;
     if (is_train) {
         Train.num = n;
         Train.Maps = x;
@@ -144,13 +182,15 @@ void BoosterUtils::set_data(uint16_t *x, double *y, double *z, int n, bool is_tr
 }
 
 void BoosterUtils::set_label(double *x, bool is_train) {
-    if (is_train) { Train.Label_double = x; }
-    else { Eval.Label_double = x; }
+    Dataset &data = is_train ? Train : Eval;
+    data.Label_double = x;
+    data.Label_int32 = nullptr;
 }
 
 void BoosterUtils::set_label(int32_t *x, bool is_train) {
-    if (is_train) { Train.Label_int32 = x; }
-    else { Eval.Label_int32 = x; }
+    Dataset &data = is_train ? Train : Eval;
+    data.Label_int32 = x;
+    data.Label_double = nullptr;
 }
 
 void BoosterUtils::init_preds(double *preds, int n) const {
@@ -218,12 +258,11 @@ BoosterSingle::BoosterSingle(
     hp.reg_l2 = reg_l2;
     hp.gamma = gamma;
     hp.base_score = base_score;
-    hp.base_scores.assign(1, base_score);
+    set_base_score(&base_score, 1);
     hp.early_stop = early_stop;
     hp.verbosity = max(0, min(verbosity, 2));
     hp.Max_caches = hist_cache;
 
-    omp_set_num_threads(hp.num_threads);
     cache = TopkDeque<CacheInfo>(hp.Max_caches);
     obj = Objective(hp.loss);
 }
@@ -289,85 +328,74 @@ void BoosterSingle::boost_all(vector<Histogram> &Hist) {
     meta = select_best_split(candidates);
 }
 
-void BoosterSingle::build_tree_best() {
-    if (tree.leaf_num >= hp.max_leaves) { return; }
+LeafNode BoosterSingle::fit_leaf(Histogram &hist, int parent) {
+    get_score_opt(hist, Opt, Score_sum);
+    LeafNode leaf(1);
+    leaf.Update(parent, Opt);
+    return leaf;
+}
 
-    auto info = &cache.data[0];
-    int parent = info->node;
-    int depth = info->depth;
+void BoosterUtils::queue_split(int leaf, int depth, vector<int32_t> &order, vector<Histogram> &hist) {
+    // A binary tree with k splits already has k + 1 terminal leaves.
+    if (1 - tree.nonleaf_num >= hp.max_leaves || depth >= hp.max_depth ||
+        hp.Max_caches <= 0 || static_cast<int>(order.size()) / 2 < hp.min_samples) {
+        return;
+    }
+    boost_all(hist);
+    if (meta.column >= 0 && meta.gain > hp.gamma) {
+        cache.push(CacheInfo(leaf, depth, meta, order, hist));
+    }
+}
 
-    int rows_l = info->hist[info->split.column].cnt[info->split.bin];
-    int rows_r = info->order.size() - rows_l;
+void BoosterUtils::boost() {
+    ScopedTeamSize team(hp.num_threads);
+    growth();
+    update();
+}
 
-    vector<int32_t> order_l(rows_l), order_r(rows_r);
-    rebuild_order(info->order, order_l, order_r,
-                  Train.Maps + Train.num * info->split.column, info->split.bin);
+void BoosterUtils::growth() {
+    tree.clear();
+    cache.data.clear();
 
-    vector<Histogram> Hist_l(hp.inp_dim), Hist_r(hp.inp_dim);
+    vector<Histogram> root_hist;
+    for (auto bins : bin_nums) { root_hist.emplace_back(bins, hp.out_dim); }
+    hist_all(Train.Orders, root_hist);
+    tree.add_leaf(fit_leaf(root_hist[0], -1), true);
+    queue_split(tree.leaf_num, 0, Train.Orders, root_hist);
 
-    if (rows_l >= rows_r) {
-        for (int i = 0; i < hp.inp_dim; i++) { Hist_r[i] = Histogram(bin_nums[i], 1); }
-        hist_all(order_r, Hist_r);
+    // Pending candidates are fitted leaves. A full cache or leaf budget can
+    // discard a candidate without leaving a branch without a prediction.
+    while (!cache.data.empty() && tree.leaf_num < hp.max_leaves) {
+        CacheInfo info = std::move(cache.data.front());
+        cache.data.pop_front();
+        const auto &split = info.split;
+        int rows_l = info.hist[split.column].cnt[split.bin];
+        int rows_r = static_cast<int>(info.order.size()) - rows_l;
+        vector<int32_t> order_l(rows_l), order_r(rows_r);
+        rebuild_order(info.order, order_l, order_r, Train.Maps + Train.num * split.column, split.bin);
+
+        vector<Histogram> smaller_hist;
+        for (auto bins : bin_nums) { smaller_hist.emplace_back(bins, hp.out_dim); }
+        bool right_is_smaller = rows_r <= rows_l;
+        hist_all(right_is_smaller ? order_r : order_l, smaller_hist);
 #pragma omp parallel for schedule(static)
-        for (int i = 0; i < hp.inp_dim; ++i) { info->hist[i] - Hist_r[i]; }
-        Hist_l.assign(info->hist.begin(), info->hist.end());
-    } else {
-        for (int i = 0; i < hp.inp_dim; i++) { Hist_l[i] = Histogram(bin_nums[i], 1); }
-        hist_all(order_l, Hist_l);
-#pragma omp parallel for schedule(static)
-        for (int i = 0; i < hp.inp_dim; ++i) { info->hist[i] - Hist_l[i]; }
-        Hist_r.assign(info->hist.begin(), info->hist.end());
-    }
-    cache.data.pop_front();
+        for (int i = 0; i < hp.inp_dim; ++i) { info.hist[i] - smaller_hist[i]; }
+        auto &hist_l = right_is_smaller ? info.hist : smaller_hist;
+        auto &hist_r = right_is_smaller ? smaller_hist : info.hist;
 
-    bool split_left = false;
-    if (rows_l > 0) {
-        get_score_opt(Hist_l[0], Opt, Score_sum);
-        if (rows_l >= hp.min_samples) {
-            boost_all(Hist_l);
-
-            if (depth + 1 < hp.max_depth && meta.column > -1 && meta.gain > hp.gamma) {
-                auto node = NonLeafNode(parent, meta.column, meta.bin, meta.threshold);
-                tree.add_nonleaf(node, true);
-                cache.push(CacheInfo(tree.nonleaf_num, depth + 1, meta, order_l, Hist_l));
-                split_left = true;
-            }
-        }
+        // Reuse the selected leaf's index for the left child so leaf IDs stay dense.
+        int leaf = info.node;
+        int parent = tree.leaf.at(leaf).parent;
+        bool left = tree.nonleaf.empty() || tree.nonleaf.at(parent).left == leaf;
+        tree.add_nonleaf(NonLeafNode(parent, split.column, split.bin, split.threshold), left);
+        int node = tree.nonleaf_num;
+        tree.nonleaf.at(node).left = leaf;
+        tree.leaf.at(leaf) = fit_leaf(hist_l[0], node);
+        queue_split(leaf, info.depth + 1, order_l, hist_l);
+        tree.add_leaf(fit_leaf(hist_r[0], node), false);
+        queue_split(tree.leaf_num, info.depth + 1, order_r, hist_r);
     }
-    if (!split_left) {
-        auto node = LeafNode(1);
-        if (rows_l > 0) { node.Update(parent, Opt); }
-        else { node.Update(parent, 0.0); }
-        tree.add_leaf(node, true);
-    }
-    order_l.clear();
-    Hist_l.clear();
-
-    if (tree.leaf_num >= hp.max_leaves) { return; }
-    bool split_right = false;
-    if (rows_r > 0) {
-        get_score_opt(Hist_r[0], Opt, Score_sum);
-        if (rows_r >= hp.min_samples) {
-            boost_all(Hist_r);
-
-            if (depth + 1 < hp.max_depth && meta.column > -1 && meta.gain > hp.gamma) {
-                auto node = NonLeafNode(parent, meta.column, meta.bin, meta.threshold);
-                tree.add_nonleaf(node, false);
-                cache.push(CacheInfo(tree.nonleaf_num, depth + 1, meta, order_r, Hist_r));
-                split_right = true;
-            }
-        }
-    }
-    if (!split_right) {
-        auto node = LeafNode(1);
-        if (rows_r > 0) { node.Update(parent, Opt); }
-        else { node.Update(parent, 0.0); }
-        tree.add_leaf(node, false);
-    }
-    order_r.clear();
-    Hist_r.clear();
-
-    if (!cache.data.empty()) { build_tree_best(); }
+    cache.data.clear();
 }
 
 void BoosterSingle::update() {
@@ -379,28 +407,11 @@ void BoosterSingle::update() {
     trees.push_back(tree);
 }
 
-void BoosterSingle::growth() {
-    tree.clear();
-    cache.data.clear();
-
-    vector<Histogram> Hist(hp.inp_dim);
-    for (int i = 0; i < hp.inp_dim; i++) { Hist[i] = Histogram(bin_nums[i], 1); }
-    hist_all(Train.Orders, Hist);
-    get_score_opt(Hist[0], Opt, Score_sum);
-    boost_all(Hist);
-    if (meta.column > -1 && meta.gain > hp.gamma) {
-        auto node = NonLeafNode(-1, meta.column, meta.bin, meta.threshold);
-        tree.add_nonleaf(node, true);
-        cache.push(CacheInfo(-1, 0, meta, Train.Orders, Hist));
-        build_tree_best();
-    } else {
-        auto node = LeafNode(1);
-        node.Update(-1, Opt);
-        tree.add_leaf(node, true);
-    }
-}
-
 void BoosterSingle::train(int num_rounds) {
+    if (num_rounds <= 0) { return; }
+    ScopedTeamSize team(hp.num_threads);
+    const int initial_trees = tree_count();
+    const bool evaluate = Eval.has_labels();
     // initialize gradient and hessian
     G = (double *) calloc(Train.num, sizeof(double));
     H = (double *) calloc(Train.num, sizeof(double));
@@ -422,26 +433,31 @@ void BoosterSingle::train(int num_rounds) {
         growth();
         update();
         double score = obj.f_score(Train, Train.num, 1);
-        if (Eval.num > 0) {
+        if (evaluate) {
             double metric = obj.f_metric(Eval, Eval.num, 1);
             if (hp.show_round_metrics()) { showloss(score, metric, i); }
             early_stoper.push(make_pair(metric, i));
             if (!early_stoper.is_continue) {
                 auto info = early_stoper.best();
                 if (hp.show_summary()) { early_stoper.print_best(); }
-                trees.resize(get<1>(info) + 1);
+                restore_best(initial_trees + info.second + 1);
                 break;
             }
         } else {
             if (hp.show_round_metrics()) { showloss(score, i); }
         }
     }
-    if (early_stoper.is_continue && Eval.num > 0 && hp.show_summary()) { early_stoper.print_best(); }
+    if (early_stoper.is_continue && evaluate && hp.show_summary()) { early_stoper.print_best(); }
     free(G);
     free(H);
+    G = H = nullptr;
 }
 
 void BoosterSingle::train_multi(int num_rounds, int out_dim) {
+    if (num_rounds <= 0) { return; }
+    ScopedTeamSize team(hp.num_threads);
+    const int initial_trees = tree_count();
+    const bool evaluate = Eval.has_labels();
     out_dim = max(out_dim, 2);
     int elements = Train.num * out_dim;
     G = (double *) calloc(elements, sizeof(double));
@@ -476,23 +492,24 @@ void BoosterSingle::train_multi(int num_rounds, int out_dim) {
             }
         }
         double score = obj.f_score(Train, Train.num, out_dim);
-        if (Eval.num > 0) {
+        if (evaluate) {
             double metric = obj.f_metric(Eval, Eval.num, out_dim);
             if (hp.show_round_metrics()) { showloss(score, metric, i); }
             early_stoper.push(make_pair(metric, i));
             if (!early_stoper.is_continue) {
                 auto info = early_stoper.best();
                 if (hp.show_summary()) { early_stoper.print_best(); }
-                trees.resize(get<1>(info) + 1);
+                restore_best(initial_trees + (info.second + 1) * out_dim, out_dim);
                 break;
             }
         } else {
             if (hp.show_round_metrics()) { showloss(score, i); }
         }
     }
-    if (early_stoper.is_continue && Eval.num > 0 && hp.show_summary()) { early_stoper.print_best(); }
+    if (early_stoper.is_continue && evaluate && hp.show_summary()) { early_stoper.print_best(); }
     free(G);
     free(H);
+    G = H = nullptr;
 }
 
 void BoosterSingle::predict(double *features, double *preds, int n, int num_trees = 0) {
@@ -504,8 +521,9 @@ void BoosterSingle::predict(double *features, double *preds, int n, int num_tree
 }
 
 void BoosterSingle::predict_multi(double *features, double *preds, int n, int out_dim, int num_trees = 0) {
-    if (num_trees == 0) { num_trees = int(trees.size()); }
-    else { num_trees = min(num_trees, int(trees.size())); }
+    if (out_dim < 1) { return; }
+    const int rounds = tree_count() / out_dim;
+    num_trees = num_trees == 0 ? rounds : min(num_trees, rounds);
     int t = 0;
     for (int i = 0; i < num_trees; ++i) {
         int start = 0;
@@ -551,7 +569,7 @@ BoosterMulti::BoosterMulti(
     hp.reg_l2 = reg_l2;
     hp.gamma = gamma;
     hp.base_score = base_score;
-    hp.base_scores.assign(hp.out_dim, base_score);
+    set_base_score(&base_score, 1);
     hp.early_stop = early_stop;
     hp.one_side = one_side;
     hp.verbosity = max(0, min(verbosity, 2));
@@ -564,7 +582,6 @@ BoosterMulti::BoosterMulti(
         Opt.resize(hp.out_dim);
     }
 
-    omp_set_num_threads(hp.num_threads);
     cache = TopkDeque<CacheInfo>(hp.Max_caches);
     obj = Objective(hp.loss);
 }
@@ -765,100 +782,16 @@ void BoosterMulti::boost_all(vector<Histogram> &Hist) {
     meta = select_best_split(candidates);
 }
 
-void BoosterMulti::build_tree_best() {
-    if (tree.leaf_num >= hp.max_leaves) { return; }
-
-    auto info = &cache.data[0];
-    int parent = info->node;
-    int depth = info->depth;
-
-    int rows_l = info->hist[info->split.column].cnt[info->split.bin];
-    int rows_r = info->order.size() - rows_l;
-
-    vector<int32_t> order_l(rows_l), order_r(rows_r);
-    rebuild_order(info->order, order_l, order_r,
-                  Train.Maps + Train.num * info->split.column, info->split.bin);
-
-    vector<Histogram> Hist_l(hp.inp_dim), Hist_r(hp.inp_dim);
-
-    if (rows_l >= rows_r) {
-        for (int i = 0; i < hp.inp_dim; i++) { Hist_r[i] = Histogram(bin_nums[i], hp.out_dim); }
-        hist_all(order_r, Hist_r);
-#pragma omp parallel for schedule(static)
-        for (int i = 0; i < hp.inp_dim; ++i) { info->hist[i] - Hist_r[i]; }
-        Hist_l.assign(info->hist.begin(), info->hist.end());
+LeafNode BoosterMulti::fit_leaf(Histogram &hist, int parent) {
+    LeafNode leaf(hp.out_dim);
+    if (hp.topk > 0) {
+        get_score_opt(hist, OptPair, Score, Score_sum);
+        leaf.Update(parent, OptPair);
     } else {
-        for (int i = 0; i < hp.inp_dim; i++) { Hist_l[i] = Histogram(bin_nums[i], hp.out_dim); }
-        hist_all(order_l, Hist_l);
-#pragma omp parallel for schedule(static)
-        for (int i = 0; i < hp.inp_dim; ++i) { info->hist[i] - Hist_l[i]; }
-        Hist_r.assign(info->hist.begin(), info->hist.end());
+        get_score_opt(hist, Opt, Score, Score_sum);
+        leaf.Update(parent, Opt);
     }
-    cache.data.pop_front();
-
-    bool split_left = false;
-    if (rows_l > 0) {
-        if (hp.topk == 0) {
-            get_score_opt(Hist_l[0], Opt, Score, Score_sum);
-        } else {
-            get_score_opt(Hist_l[0], OptPair, Score, Score_sum);
-        }
-        if (rows_l >= hp.min_samples) {
-            boost_all(Hist_l);
-
-            if (depth + 1 < hp.max_depth && meta.column > -1 && meta.gain > hp.gamma) {
-                auto node = NonLeafNode(parent, meta.column, meta.bin, meta.threshold);
-                tree.add_nonleaf(node, true);
-                cache.push(CacheInfo(tree.nonleaf_num, depth + 1, meta, order_l, Hist_l));
-                split_left = true;
-            }
-        }
-    }
-    if (!split_left) {
-        auto node = LeafNode(hp.out_dim);
-        if (rows_l > 0) {
-            if (hp.topk > 0) { node.Update(parent, OptPair); }
-            else { node.Update(parent, Opt); }
-        } else {
-            node.parent = parent;
-        }
-        tree.add_leaf(node, true);
-    }
-    order_l.clear();
-    Hist_l.clear();
-
-    if (tree.leaf_num >= hp.max_leaves) { return; }
-    bool split_right = false;
-    if (rows_r > 0) {
-        if (hp.topk == 0) {
-            get_score_opt(Hist_r[0], Opt, Score, Score_sum);
-        } else {
-            get_score_opt(Hist_r[0], OptPair, Score, Score_sum);
-        }
-        if (rows_r >= hp.min_samples) {
-            boost_all(Hist_r);
-            if (depth + 1 < hp.max_depth && meta.column > -1 && meta.gain > hp.gamma) {
-                auto node = NonLeafNode(parent, meta.column, meta.bin, meta.threshold);
-                tree.add_nonleaf(node, false);
-                cache.push(CacheInfo(tree.nonleaf_num, depth + 1, meta, order_r, Hist_r));
-                split_right = true;
-            }
-        }
-    }
-    if (!split_right) {
-        auto node = LeafNode(hp.out_dim);
-        if (rows_r > 0) {
-            if (hp.topk > 0) { node.Update(parent, OptPair); }
-            else { node.Update(parent, Opt); }
-        } else {
-            node.parent = parent;
-        }
-        tree.add_leaf(node, false);
-    }
-    order_r.clear();
-    Hist_r.clear();
-
-    if (!cache.data.empty()) { build_tree_best(); }
+    return leaf;
 }
 
 void BoosterMulti::update() {
@@ -870,33 +803,11 @@ void BoosterMulti::update() {
     trees.push_back(tree);
 }
 
-void BoosterMulti::growth() {
-    tree.clear();
-    cache.data.clear();
-
-    vector<Histogram> Hist(hp.inp_dim);
-    for (int i = 0; i < hp.inp_dim; i++) { Hist[i] = Histogram(bin_nums[i], hp.out_dim); }
-    hist_all(Train.Orders, Hist);
-    if (hp.topk == 0) {
-        get_score_opt(Hist[0], Opt, Score, Score_sum);
-    } else {
-        get_score_opt(Hist[0], OptPair, Score, Score_sum);
-    }
-    boost_all(Hist);
-    if (meta.column > -1 && meta.gain > hp.gamma) {
-        auto node = NonLeafNode(-1, meta.column, meta.bin, meta.threshold);
-        tree.add_nonleaf(node, true);
-        cache.push(CacheInfo(-1, 0, meta, Train.Orders, Hist));
-        build_tree_best();
-    } else {
-        auto node = LeafNode(hp.out_dim);
-        if (hp.topk > 0) { node.Update(-1, OptPair); }
-        else { node.Update(-1, Opt); }
-        tree.add_leaf(node, true);
-    }
-}
-
 void BoosterMulti::train(int num_rounds) {
+    if (num_rounds <= 0) { return; }
+    ScopedTeamSize team(hp.num_threads);
+    const int initial_trees = tree_count();
+    const bool evaluate = Eval.has_labels();
     // initialize gradient and hessian
     int elements = Train.num * hp.out_dim;
     G = (double *) calloc(elements, sizeof(double));
@@ -919,23 +830,24 @@ void BoosterMulti::train(int num_rounds) {
         growth();
         update();
         double score = obj.f_score(Train, Train.num, hp.out_dim);
-        if (Eval.num > 0) {
+        if (evaluate) {
             double metric = obj.f_metric(Eval, Eval.num, hp.out_dim);
             if (hp.show_round_metrics()) { showloss(score, metric, i); }
             early_stoper.push(make_pair(metric, i));
             if (!early_stoper.is_continue) {
                 auto info = early_stoper.best();
                 if (hp.show_summary()) { early_stoper.print_best(); }
-                trees.resize(get<1>(info) + 1);
+                restore_best(initial_trees + info.second + 1);
                 break;
             }
         } else {
             if (hp.show_round_metrics()) { showloss(score, i); }
         }
     }
-    if (early_stoper.is_continue && Eval.num > 0 && hp.show_summary()) { early_stoper.print_best(); }
+    if (early_stoper.is_continue && evaluate && hp.show_summary()) { early_stoper.print_best(); }
     free(G);
     free(H);
+    G = H = nullptr;
 }
 
 void BoosterMulti::predict(double *features, double *preds, int n, int num_trees = 0) {
