@@ -21,15 +21,12 @@ jobs:
           - os: ubuntu-latest
             label: Linux x86_64 wheels
             cibw_archs: x86_64
-            cibw_environment_macos: ""
           - os: windows-latest
             label: Windows x86_64 wheels
             cibw_archs: AMD64
-            cibw_environment_macos: ""
-          - os: macos-14
+          - os: macos-15
             label: macOS arm64 wheels (Apple Silicon, macOS 14+)
             cibw_archs: arm64
-            cibw_environment_macos: "MACOSX_DEPLOYMENT_TARGET=14.0 CMAKE_OSX_DEPLOYMENT_TARGET=14.0"
 
     steps:
       - uses: actions/checkout@v4
@@ -38,17 +35,16 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Install macOS OpenMP runtime
-        if: startsWith(matrix.os, 'macos')
-        run: brew install libomp
-
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.3.1
         env:
           CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-*"
           CIBW_SKIP: "*-win32 *-manylinux_i686 *-musllinux* *_aarch64 *_ppc64le *_s390x *_universal2"
           CIBW_ARCHS: ${{ matrix.cibw_archs }}
-          CIBW_ENVIRONMENT_MACOS: ${{ matrix.cibw_environment_macos }}
+          CIBW_ENVIRONMENT_MACOS: >-
+            MACOSX_DEPLOYMENT_TARGET=14.0
+            CMAKE_PREFIX_PATH=$RUNNER_TEMP/omnigbdt-libomp
+          CIBW_BEFORE_ALL_MACOS: bash .github/scripts/build-macos-openmp.sh
           CIBW_TEST_REQUIRES: "pytest"
           CIBW_TEST_COMMAND: "pytest {project}/tests"
           CIBW_BEFORE_BUILD_MACOS: "python -m pip install delocate"
