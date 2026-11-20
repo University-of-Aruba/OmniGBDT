@@ -29,15 +29,16 @@ def test_skewed_histogram_agrees_with_native_prediction():
 @pytest.mark.parametrize(("counts", "max_bins", "expected_cuts"), [
     ([1] * 10, 4, [2, 5, 7]),
     ([1, 4, 1, 1, 2, 1, 3, 1, 1, 1], 4, [1, 4, 6]),
-    ([1, 1, 1, 1, 1, 1, 1, 1, 40, 1], 6, [1, 5, 6, 7, 8]),
-], ids=["distinct", "repeated", "reserve-remaining-values"])
+    ([10] * 64, 4, [15, 31, 47]),
+    ([1, 1, 1, 1, 1, 1, 1, 1, 40, 1], 6, [4, 5, 6, 7, 8]),
+], ids=["distinct", "repeated", "equal-frequency", "reserve-remaining-values"])
 def test_histogram_cut_placement_across_workers(counts, max_bins, expected_cuts):
-    """Preserve budgeted cut locations and inclusive assignments across workers.
+    """Check row-count quantiles and inclusive assignments across workers.
 
     Args:
         counts: Occurrences of successive distinct input values.
         max_bins: Histogram bin budget below the distinct value count.
-        expected_cuts: Historically selected inclusive upper bounds.
+        expected_cuts: Inclusive upper bounds after reserving distinct values for later bins.
     """
     values = np.repeat(np.arange(len(counts), dtype=np.float64), counts)
     x = np.column_stack([values[::-1], values + 100])

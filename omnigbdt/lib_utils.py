@@ -232,6 +232,13 @@ def _configure_library(lib):
     lib.SetBaseScore.restype = None
     lib.GetBaseScoreSize.restype = c_int
     lib.GetBaseScore.restype = None
+    # An explicitly loaded older library still supports the default settings.
+    if hasattr(lib, "SetSubsample"):
+        lib.SetSubsample.argtypes = [c_void_p, c_double]
+        lib.SetSubsample.restype = c_int
+    if hasattr(lib, "SetClassificationMetric"):
+        lib.SetClassificationMetric.argtypes = [c_void_p, c_bool]
+        lib.SetClassificationMetric.restype = c_int
 
     lib.Boost.argtypes = [c_void_p]
     lib.Train.argtypes = [c_void_p, c_int]

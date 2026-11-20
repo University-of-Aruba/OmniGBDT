@@ -43,7 +43,7 @@ def _construct_bin_column_impl(x: np.array, max_bins: int) -> np.array:
 
     cumulative = np.cumsum(cnt)
     cuts = np.empty(max_bins - 1, dtype=np.float64)
-    target = len(x) / float(max_bins)
+    target = sum_cnt / float(max_bins)
     for used in range(max_bins - 1):
         # Reserve one distinct value for each remaining bin, including the last.
         last = len(x) - max_bins + used

@@ -27,6 +27,10 @@ public:
 
     void set_base_score(double *, int);
 
+    int set_subsample(double fraction);
+
+    int set_classification_metric(bool use_logloss);
+
     int base_score_size() const;
 
     void get_base_scores(double *) const;

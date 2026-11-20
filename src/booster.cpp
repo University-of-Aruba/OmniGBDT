@@ -88,6 +88,19 @@ void BoosterUtils::set_gh(double *x, double *y) {
     H = y;
 }
 
+int BoosterUtils::set_subsample(double fraction) {
+    if (!(fraction > 0.0 && fraction <= 1.0)) { return -1; }
+    hp.subsample = fraction;
+    return 0;
+}
+
+int BoosterUtils::set_classification_metric(bool use_logloss) {
+    if (obj.accuracy_metric == nullptr) { return -1; }
+    obj.f_metric = use_logloss ? obj.f_score : obj.accuracy_metric;
+    obj.largerBetter = !use_logloss;
+    return 0;
+}
+
 void BoosterUtils::set_base_score(double *x, int n) {
     if (x == nullptr || n <= 0) {
         return;
@@ -355,9 +368,9 @@ void BoosterUtils::queue_split(int leaf, int depth, vector<int32_t> &order, vect
     }
     boost_all(hist);
     if (meta.column >= 0 && meta.gain > hp.gamma) {
-        // Training reuses the root row order every round. Child buffers belong
-        // exclusively to this candidate and can be transferred to the queue.
-        auto rows = depth == 0 ? vector<int32_t>(order) : std::move(order);
+        // The full training order is reused by subsequent trees. Sampled root
+        // rows and all child rows belong to this candidate.
+        auto rows = &order == &Train.Orders ? vector<int32_t>(order) : std::move(order);
         cache.push(CacheInfo{leaf, depth, meta, std::move(rows), std::move(hist)});
     }
 }
@@ -372,9 +385,20 @@ void BoosterUtils::growth() {
     tree.clear();
     cache.data.clear();
 
-    auto root_hist = build_histograms(Train.Orders, can_split(0, Train.num, 1) ? hp.inp_dim : 1);
+    vector<int32_t> sampled_rows;
+    if (hp.subsample < 1.0) {
+        sampled_rows = Train.Orders;
+        // Derive the stream from the retained ensemble so that continued fits
+        // and training after early-stop trimming use the same next sample.
+        std::mt19937 sampler(hp.seed + static_cast<unsigned int>(trees.size()));
+        std::shuffle(sampled_rows.begin(), sampled_rows.end(), sampler);
+        sampled_rows.resize(max(1, static_cast<int>(Train.num * hp.subsample)));
+        std::sort(sampled_rows.begin(), sampled_rows.end());
+    }
+    auto &root_rows = hp.subsample < 1.0 ? sampled_rows : Train.Orders;
+    auto root_hist = build_histograms(root_rows, can_split(0, static_cast<int>(root_rows.size()), 1) ? hp.inp_dim : 1);
     tree.add_leaf(fit_leaf(root_hist[0], -1), true);
-    queue_split(tree.leaf_num, 0, Train.Orders, root_hist);
+    queue_split(tree.leaf_num, 0, root_rows, root_hist);
 
     // Pending candidates are fitted leaves. A full cache or leaf budget can
     // discard a candidate without leaving a branch without a prediction.

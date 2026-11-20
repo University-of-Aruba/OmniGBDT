@@ -30,14 +30,15 @@ General
   - The current packaged CPU implementation already uses deterministic split selection
 
 - ``seed``: default = ``0``, type = int
-  - Retained for API compatibility
-  - The current deterministic CPU training path does not actively use randomness during tree growth
+  - Controls the sequence of training row samples when ``subsample < 1.0``
 
 - ``hist_cache``: default = ``16``, type = int
   - Maximum number of histogram caches
 
 - ``max_bins``: default = ``128``, type = int
   - Maximum number of bins for each input feature, from 1 through 65,535
+  - When distinct values exceed this limit, the cut targets are based on row counts. Repeated values stay together.
+  - Retraining a 0.5.1 model on repeated-valued features can therefore produce different splits. Loading a saved model uses its stored thresholds.
 
 - ``topk``: default = ``0``, type = int
   - Sparse split-finding parameter
@@ -87,8 +88,9 @@ Learning
   - Applies to the root split as well as deeper nodes
 
 - ``subsample``: default = ``1.0``, type = float
-  - Present in the Python defaults for compatibility
-  - The current native implementation does not actively use it
+  - Fraction of training rows used to fit each tree, in the range ``(0, 1]``
+  - A value below one draws a fresh sample without replacement for each tree. The sample size is the fraction times the training row count, rounded down, with a minimum of one row.
+  - Split statistics and leaf values use the sampled rows. Each tree updates predictions for every training and validation row.
 
 Training call hooks
 -------------------
@@ -97,9 +99,9 @@ The public callback hooks live on ``train(...)`` rather than inside the ``params
 
 - ``train(num, objective=None, eval_metric=None, maximize=None)``
   - available on ``SingleOutputGBDT`` and ``MultiOutputGBDT``
+  - Built-in classifiers maximize validation accuracy by default. Pass ``eval_metric="logloss"`` to minimize validation log loss for this training call. The legacy ``train_multi`` method accepts the same metric.
   - ``objective(preds, y_true)`` must return ``(grad, hess)``
-  - ``eval_metric(preds, y_true)`` must return a scalar float
-  - ``maximize`` controls whether larger evaluation metric values are better
+  - For custom objectives, ``eval_metric(preds, y_true)`` must return a scalar float and ``maximize`` controls whether larger values are better.
 
 Shape rules:
 

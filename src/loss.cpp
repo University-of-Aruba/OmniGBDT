@@ -1,4 +1,65 @@
 #include "loss.h"
+#include <cmath>
+#include <limits>
+
+namespace {
+
+// Fixed blocks keep early-stopping comparisons independent of OpenMP scheduling.
+template<typename Term>
+double ordered_sum(int n, Term term) {
+    const int block_size = 256;
+    const int blocks = 1 + (n - 1) / block_size;
+    vector<double> partial(blocks);
+#pragma omp parallel for schedule(static) if (blocks > 1)
+    for (int block = 0; block < blocks; ++block) {
+        const int begin = block * block_size;
+        const int end = begin + min(block_size, n - begin);
+        double sum = 0.0;
+        for (int i = begin; i < end; ++i) { sum += term(i); }
+        partial[block] = sum;
+    }
+    double sum = 0.0;
+    for (double value : partial) { sum += value; }
+    return sum;
+}
+
+template<typename ScaledLoss>
+double mean_log_loss(int n, ScaledLoss loss) {
+    const double mean = ordered_sum(n, [&](int i) { return loss(i, n); });
+    if (!std::isinf(mean)) { return mean; }
+
+    // Rounding each loss / n can overflow the final sum even when the mean
+    // is exactly DBL_MAX. Recenter near that boundary in the rare overflow case.
+    // Halving first accommodates a finite logit gap up to twice DBL_MAX.
+    const double limit = std::numeric_limits<double>::max();
+    const double adjustment = ordered_sum(n, [&](int i) {
+        return (loss(i, 2) - limit * 0.5) / n;
+    });
+    return limit + adjustment * 2;
+}
+
+double multiclass_log_loss(Dataset &data, int n, int classes, size_t row_stride, size_t class_stride) {
+    return mean_log_loss(n, [&](int i, int divisor) {
+        const double *row = data.Preds + i * row_stride;
+        int largest = 0;
+        for (int j = 1; j < classes; ++j) {
+            if (row[j * class_stride] > row[largest * class_stride]) { largest = j; }
+        }
+        const double peak = row[largest * class_stride];
+        double rest = 0.0;
+        for (int j = 0; j < classes; ++j) {
+            if (j != largest) { rest += exp(row[j * class_stride] - peak); }
+        }
+        // Center before adding the log normalizer to retain the loss when all
+        // logits share a large offset. Scale extreme losses before reduction.
+        const double target = row[data.Label_int32[i] * class_stride];
+        const double gap = peak - target;
+        const double scaled_gap = std::isfinite(gap) ? gap / divisor : peak / divisor - target / divisor;
+        return scaled_gap + log1p(rest) / divisor;
+    });
+}
+
+}  // namespace
 
 void mse_grad(Dataset &data, double *g, double *h, int n, int out_dim = 1) {
     auto preds = data.Preds;
@@ -14,22 +75,7 @@ double mse_score(Dataset &data, int n, int out_dim = 1) {
     auto preds = data.Preds;
     auto labels = data.Label_double;
     int N = n * out_dim;
-    // Early stopping compares these scores. Use fixed blocks and combine them
-    // in row order so worker scheduling cannot turn a tie into an improvement.
-    const int block_size = 256;
-    const int blocks = 1 + (N - 1) / block_size;
-    vector<double> partial(blocks);
-#pragma omp parallel for schedule(static) if (blocks > 1)
-    for (int block = 0; block < blocks; ++block) {
-        const int begin = block * block_size;
-        const int end = begin + min(block_size, N - begin);
-        double sum = 0.0;
-        for (int i = begin; i < end; ++i) { sum += Sqr(preds[i] - labels[i]); }
-        partial[block] = sum;
-    }
-    double sum = 0.0;
-    for (double value : partial) { sum += value; }
-    return sqrt(sum / N);
+    return sqrt(ordered_sum(N, [&](int i) { return Sqr(preds[i] - labels[i]); }) / N);
 }
 
 void bce_grad(Dataset &data, double *g, double *h, int n, int out_dim) {
@@ -48,13 +94,10 @@ double bce_score(Dataset &data, int n, int out_dim) {
     auto preds = data.Preds;
     auto labels = data.Label_int32;
     int N = n * out_dim;
-    double score = 0.0f;
-#pragma omp parallel for schedule(static) reduction(+:score)
-    for (int i = 0; i < N; ++i) {
-        double margin = labels[i] == 1 ? -preds[i] : preds[i];
-        score += max(margin, 0.0) + log1p(exp(-abs(margin)));
-    }
-    return score / N;
+    return mean_log_loss(N, [&](int i, int divisor) {
+        const double margin = labels[i] == 1 ? -preds[i] : preds[i];
+        return (max(margin, 0.0) + log1p(exp(-abs(margin)))) / divisor;
+    });
 }
 
 void ce_grad_thread(Dataset &data, double *g, double *h, int n, int out_dim, int start) {
@@ -94,40 +137,8 @@ void ce_grad(Dataset &data, double *g, double *h, int n, int out_dim) {
     }
 }
 
-double ce_score_thread(Dataset &data, int n, int out_dim, int start) {
-    auto preds = data.Preds + start * out_dim;
-    auto labels = data.Label_int32 + start;
-    int i, j, idx = 0;
-    double score_sum = 0.0f;
-    vector<double> rec(out_dim);
-    for (i = 0; i < n; ++i) {
-        for (j = 0; j < out_dim; ++j) { rec[j] = preds[idx + j]; }
-        score_sum += Log_sum_exp(rec) - preds[idx + labels[i]];
-        idx += out_dim;
-    }
-    return score_sum;
-}
-
 double ce_score(Dataset &data, int n, int out_dim) {
-    if (n < 32) {
-        return ce_score_thread(data, n, out_dim, 0) / n;
-    } else {
-        double s = 0.0f;
-#pragma omp parallel reduction(+:s)
-        {
-            int threads = omp_get_num_threads();
-            int id = omp_get_thread_num();
-            int start = n / threads * id;
-            int sample;
-            if (id == threads - 1) {
-                sample = n - n / threads * id;
-            } else {
-                sample = n / threads;
-            }
-            s += ce_score_thread(data, sample, out_dim, start);
-        };
-        return s / n;
-    }
+    return multiclass_log_loss(data, n, out_dim, out_dim, 1);
 }
 
 void ce_grad_column_thread(Dataset &data, double *g, double *h, int n, int out_dim, int threads, int thread) {
@@ -165,39 +176,8 @@ void ce_grad_column(Dataset &data, double *g, double *h, int n, int out_dim) {
     }
 }
 
-double ce_score_column_thread(Dataset &data, int n, int out_dim, int threads, int thread) {
-    auto preds = data.Preds;
-    auto labels = data.Label_int32;
-    int i, j;
-    vector<int> idx(out_dim);
-    vector<double> rec(out_dim);
-    double score_sum = 0.0f;
-    for (i = thread; i < n; i += threads) {
-        idx[0] = i;
-        rec[0] = preds[i];
-        for (j = 1; j < out_dim; ++j) {
-            idx[j] = idx[j - 1] + n;
-            rec[j] = preds[idx[j]];
-        }
-        score_sum += Log_sum_exp(rec) - preds[idx[labels[i]]];
-
-    }
-    return score_sum;
-}
-
 double ce_score_column(Dataset &data, int n, int out_dim) {
-    if (n < 32) {
-        return ce_score_column_thread(data, n, out_dim, 1, 0) / n;
-    } else {
-        double s = 0.0f;
-#pragma omp parallel reduction(+:s)
-        {
-            int threads = omp_get_num_threads();
-            int id = omp_get_thread_num();
-            s += ce_score_column_thread(data, n, out_dim, threads, id);
-        };
-        return s / n;
-    }
+    return multiclass_log_loss(data, n, out_dim, 1, n);
 }
 
 double acc_multiclass(Dataset &data, int n, int out_dim) {

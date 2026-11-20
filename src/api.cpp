@@ -18,6 +18,14 @@ OMNIGBDT_EXPORT void SetBaseScore(BoosterUtils *foo, double *x, int n) {
     return foo->set_base_score(x, n);
 }
 
+OMNIGBDT_EXPORT int SetSubsample(BoosterUtils *foo, double fraction) {
+    return foo ? foo->set_subsample(fraction) : -1;
+}
+
+OMNIGBDT_EXPORT int SetClassificationMetric(BoosterUtils *foo, bool use_logloss) {
+    return foo ? foo->set_classification_metric(use_logloss) : -1;
+}
+
 OMNIGBDT_EXPORT int GetBaseScoreSize(BoosterUtils *foo) {
     return foo->base_score_size();
 }

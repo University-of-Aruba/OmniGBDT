@@ -49,6 +49,7 @@ MultiOutputGBDT
 
       - when ``objective`` is omitted, OmniGBDT uses the built-in native loss from ``params["loss"]``
       - when ``objective`` is provided, it must return ``(grad, hess)`` from the current prediction matrix and label matrix
+      - for built-in classification, ``eval_metric="logloss"`` selects validation log loss for early stopping. The default metric is accuracy.
       - for ``MultiOutputGBDT``, those callback arrays are 2D with shape ``(n_samples, out_dim)``
       - ``eval_metric`` may be used to report a scalar metric for the train and eval splits during custom-objective training
       - if ``early_stop > 0`` and evaluation labels are registered on the custom-objective path, then ``eval_metric`` and ``maximize`` must also be provided
@@ -121,6 +122,7 @@ SingleOutputGBDT
 
       - when ``objective`` is omitted, OmniGBDT uses the built-in native loss from ``params["loss"]``
       - when ``objective`` is provided, it must return ``(grad, hess)`` from the current prediction vector and label vector
+      - with binary classification, ``eval_metric="logloss"`` selects validation log loss for early stopping. The default metric is accuracy.
       - for ``SingleOutputGBDT``, callback arrays are 1D with shape ``(n_samples,)``
       - the custom-objective path is only supported for the normal ``out_dim == 1`` workflow
       - if ``early_stop > 0`` and evaluation labels are registered on the custom-objective path, then ``eval_metric`` and ``maximize`` must also be provided
@@ -133,9 +135,9 @@ SingleOutputGBDT
       - with ``out_dim > 1``, the return value is shaped as ``(n_samples, out_dim)``
       - for legacy ``train_multi`` ensembles, a positive ``num_trees`` limits the number of complete boosting rounds, each containing one tree per output
 
-   .. method:: train_multi(num)
+   .. method:: train_multi(num, eval_metric=None)
 
-      Legacy helper used by the original code for multi-classification style workflows.
+      Train one tree per class per round with the legacy column-major objective. Pass ``eval_metric="logloss"`` for validation log loss or ``"accuracy"`` for the default metric.
 
    .. method:: reset()
 

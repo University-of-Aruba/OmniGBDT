@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ctypes
 import os
+from numbers import Real
 from pathlib import Path
 import stat
 import tempfile
@@ -357,10 +358,14 @@ class BoostUtils:
             raise ValueError("out_dim has changed; configure a new booster before using this width.")
 
     def _check_configuration(self, inp_dim):
-        """Validate dimensions and loss before constructing a native model.
+        """Validate the configuration before constructing a native model.
 
         Args:
             inp_dim: Number of input features.
+
+        Raises:
+            ValueError: If dimensions, training parameters or loss are invalid.
+            RuntimeError: If the loaded library lacks requested row sampling.
         """
         if index(inp_dim) <= 0 or index(self.out_dim) <= 0:
             raise ValueError("Input and output dimensions must be positive.")
@@ -369,6 +374,70 @@ class BoostUtils:
                 raise ValueError(f"{name} must be at least {minimum}.")
         if self.params["loss"] not in (b"mse", b"bce", b"ce", b"ce_column"):
             raise ValueError("loss must be one of b'mse', b'bce', b'ce', b'ce_column'.")
+        fraction = self.params["subsample"]
+        if (
+            not isinstance(fraction, Real)
+            or isinstance(fraction, bool)
+            or not 0 < fraction <= 1
+            or float(fraction) == 0
+        ):
+            raise ValueError("subsample must be a finite number in (0, 1].")
+        if fraction < 1 and not hasattr(self.lib, "SetSubsample"):
+            raise RuntimeError("Row subsampling requires a native library with SetSubsample.")
+
+    def _replace_booster(self, new_booster, inp_dim, base_scores):
+        """Configure a newly constructed native booster and replace the current one.
+
+        Args:
+            new_booster: Owned native booster pointer.
+            inp_dim: Number of input features.
+            base_scores: Resolved initial margins for the new model.
+
+        Raises:
+            ValueError: If the native booster rejects the sample fraction.
+        """
+        fraction = self.params["subsample"]
+        if fraction < 1 and self.lib.SetSubsample(new_booster, float(fraction)) != 0:
+            getattr(self.lib, self._free_fn_name)(new_booster)
+            raise ValueError("Native booster rejected subsample.")
+        self.close()
+        self._boostnode = new_booster
+        self._input_width = inp_dim
+        self._active_out_dim = self.out_dim
+        self._active_loss = self.params["loss"]
+        self._apply_resolved_base_scores(base_scores)
+        self._set_native_base_scores(base_scores)
+
+    def _configure_builtin_metric(self, eval_metric, maximize=None):
+        """Select the native validation metric for the current training call.
+
+        Args:
+            eval_metric: Optional classification metric name, accuracy or logloss.
+            maximize: Optional direction, which must agree with a named metric.
+
+        Raises:
+            TypeError: If a metric callback is supplied without a custom objective.
+            ValueError: If the named metric or direction is invalid for the loss.
+            RuntimeError: If the loaded library lacks native log-loss stopping.
+        """
+        if eval_metric is not None:
+            if not isinstance(eval_metric, str):
+                raise TypeError("A built-in eval_metric must be a name. Metric callbacks require a custom objective.")
+            if eval_metric not in ("accuracy", "logloss"):
+                raise ValueError("Built-in classifier eval_metric must be 'accuracy' or 'logloss'.")
+            if self._active_loss == b"mse":
+                raise ValueError("A classifier eval_metric requires a classification loss.")
+            if maximize is not None and maximize != (eval_metric == "accuracy"):
+                raise ValueError("maximize conflicts with the direction of the built-in eval_metric.")
+        if self._active_loss == b"mse":
+            return
+        use_logloss = eval_metric == "logloss"
+        setter = getattr(self.lib, "SetClassificationMetric", None)
+        if setter is None:
+            if use_logloss:
+                raise RuntimeError("Log-loss stopping requires a native library with SetClassificationMetric.")
+        elif setter(self._boostnode, use_logloss) != 0:
+            raise ValueError("Native booster rejected the classifier eval_metric.")
 
     def _callback_input(self, array):
         """Create a read-only callback view of a model buffer.
@@ -708,8 +777,11 @@ class BoostUtils:
         Args:
             num: Number of boosting rounds to run.
             objective: Optional callback implementing ``(grad, hess)`` generation.
-            eval_metric: Optional scalar metric callback for Python-managed training.
-            maximize: Whether larger evaluation metric values are better.
+            eval_metric: Built-in classifier validation metric (``"accuracy"`` or
+                ``"logloss"``), or a scalar metric callback for a custom objective.
+                The default is accuracy for classification and RMSE for regression.
+            maximize: Whether larger custom metric values are better. Built-in
+                metrics infer their direction.
         """
         self._check_booster()
         if not hasattr(self, "preds_train"):
@@ -721,6 +793,7 @@ class BoostUtils:
                 raise ValueError("Use train_multi(...) for legacy multi-class training.")
             if self._multi_output and self._active_loss == b"ce_column":
                 raise ValueError("Use b'ce' for row-major multi-output training.")
+            self._configure_builtin_metric(eval_metric, maximize)
             self._prepare_builtin_labels()
             self._gh_buffers = None
             if num == 0:
@@ -823,19 +896,15 @@ class SingleOutputGBDT(BoostUtils):
             self.params["verbosity"],
             self.params["hist_cache"],
         )
-        self.close()
-        self._boostnode = new_booster
-        self._input_width = inp_dim
-        self._active_out_dim = self.out_dim
-        self._active_loss = self.params["loss"]
-        self._apply_resolved_base_scores(resolved_base_scores)
-        self._set_native_base_scores(resolved_base_scores)
+        self._replace_booster(new_booster, inp_dim, resolved_base_scores)
 
-    def train_multi(self, num):
+    def train_multi(self, num, eval_metric=None):
         """Train the legacy multi-class helper path.
 
         Args:
             num: Number of boosting rounds.
+            eval_metric: Optional built-in classifier validation metric,
+                ``"accuracy"`` (default) or ``"logloss"``.
         """
         self._check_booster()
         if self.out_dim <= 1:
@@ -844,6 +913,7 @@ class SingleOutputGBDT(BoostUtils):
             raise ValueError("Use b'ce_column' for column-major train_multi(...).")
         if index(num) < 0:
             raise ValueError("num must be nonnegative.")
+        self._configure_builtin_metric(eval_metric)
         self._prepare_builtin_labels()
         self._gh_buffers = None
         if num == 0:
@@ -925,10 +995,4 @@ class MultiOutputGBDT(BoostUtils):
             self.params["verbosity"],
             self.params["hist_cache"],
         )
-        self.close()
-        self._boostnode = new_booster
-        self._input_width = inp_dim
-        self._active_out_dim = self.out_dim
-        self._active_loss = self.params["loss"]
-        self._apply_resolved_base_scores(resolved_base_scores)
-        self._set_native_base_scores(resolved_base_scores)
+        self._replace_booster(new_booster, inp_dim, resolved_base_scores)

@@ -167,6 +167,7 @@ class SingleOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
         seed=0,
         num_threads=2,
         min_samples=20,
+        subsample=1.0,
         lr=0.05,
         base_score=None,
         reg_l1=0.0,
@@ -183,7 +184,7 @@ class SingleOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
             num_rounds: Number of boosting rounds.
             loss: Built-in native loss name for the standard training path.
             objective: Optional custom objective callback.
-            eval_metric: Optional custom scalar evaluation metric.
+            eval_metric: Native classifier metric name or a custom scalar evaluation metric.
             maximize: Whether larger evaluation metric values are better.
             max_depth: Maximum tree depth.
             max_leaves: Maximum leaves per tree.
@@ -192,6 +193,7 @@ class SingleOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
             seed: Random seed.
             num_threads: Number of native threads.
             min_samples: Minimum rows in each leaf.
+            subsample: Fraction of training rows drawn without replacement per tree.
             lr: Learning rate.
             base_score: Initial prediction value. ``None`` enables automatic
                 regression mean initialization.
@@ -215,6 +217,7 @@ class SingleOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
         self.seed = seed
         self.num_threads = num_threads
         self.min_samples = min_samples
+        self.subsample = subsample
         self.lr = lr
         self.base_score = base_score
         self.reg_l1 = reg_l1
@@ -240,6 +243,7 @@ class SingleOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
             "seed": self.seed,
             "num_threads": self.num_threads,
             "min_samples": self.min_samples,
+            "subsample": self.subsample,
             "lr": self.lr,
             "base_score": self.base_score,
             "reg_l1": self.reg_l1,
@@ -316,6 +320,7 @@ class MultiOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
         seed=0,
         num_threads=2,
         min_samples=20,
+        subsample=1.0,
         lr=0.05,
         base_score=None,
         reg_l1=0.0,
@@ -332,7 +337,7 @@ class MultiOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
             num_rounds: Number of boosting rounds.
             loss: Built-in native loss name for the standard training path.
             objective: Optional custom objective callback.
-            eval_metric: Optional custom scalar evaluation metric.
+            eval_metric: Native classifier metric name or a custom scalar evaluation metric.
             maximize: Whether larger evaluation metric values are better.
             max_depth: Maximum tree depth.
             max_leaves: Maximum leaves per tree.
@@ -343,6 +348,7 @@ class MultiOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
             seed: Random seed.
             num_threads: Number of native threads.
             min_samples: Minimum rows in each leaf.
+            subsample: Fraction of training rows drawn without replacement per tree.
             lr: Learning rate.
             base_score: Initial prediction value. ``None`` enables automatic
                 regression mean initialization.
@@ -368,6 +374,7 @@ class MultiOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
         self.seed = seed
         self.num_threads = num_threads
         self.min_samples = min_samples
+        self.subsample = subsample
         self.lr = lr
         self.base_score = base_score
         self.reg_l1 = reg_l1
@@ -395,6 +402,7 @@ class MultiOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
             "seed": self.seed,
             "num_threads": self.num_threads,
             "min_samples": self.min_samples,
+            "subsample": self.subsample,
             "lr": self.lr,
             "base_score": self.base_score,
             "reg_l1": self.reg_l1,

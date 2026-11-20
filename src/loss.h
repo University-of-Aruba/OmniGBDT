@@ -34,15 +34,11 @@ void ce_grad_thread(Dataset &, double *, double *, int, int, int);
 
 void ce_grad(Dataset &, double *, double *, int, int);
 
-double ce_score_thread(Dataset &, int, int, int);
-
 double ce_score(Dataset &, int, int);
 
 void ce_grad_column_thread(Dataset &, double *, double *, int, int, int, int);
 
 void ce_grad_column(Dataset &, double *, double *, int, int);
-
-double ce_score_column_thread(Dataset &, int, int, int, int);
 
 double ce_score_column(Dataset &, int, int);
 
@@ -56,10 +52,11 @@ double acc_multiclass_column(Dataset &, int, int);
 struct Objective {
     bool constHessian = true;
     double hessian = 1.0f;
-    double largerBetter = false;
+    bool largerBetter = false;
     func_grad f_grad;
     func_score f_score;
     func_metric f_metric;
+    func_metric accuracy_metric = nullptr;
 
     Objective() {};
 
@@ -67,30 +64,28 @@ struct Objective {
         if (strcmp(name, "mse") == 0) {
             f_grad = mse_grad;
             f_score = mse_score;
-            f_metric = mse_score;
         } else if (strcmp(name, "ce") == 0) {
             constHessian = false;
-            largerBetter = true;
             f_grad = ce_grad;
             f_score = ce_score;
-            f_metric = acc_multiclass;
+            accuracy_metric = acc_multiclass;
         } else if (strcmp(name, "ce_column") == 0) {
             constHessian = false;
-            largerBetter = true;
             f_grad = ce_grad_column;
             f_score = ce_score_column;
-            f_metric = acc_multiclass_column;
+            accuracy_metric = acc_multiclass_column;
         } else if (strcmp(name, "bce") == 0) {
             constHessian = false;
-            largerBetter = true;
             f_grad = bce_grad;
             f_score = bce_score;
-            f_metric = acc_binary;
+            accuracy_metric = acc_binary;
         } else {
             string s = "Objective type name must be in [mse, bce, ce, ce_column]";
             cout << s << endl;
             throw std::runtime_error(s);
         }
+        largerBetter = accuracy_metric != nullptr;
+        f_metric = largerBetter ? accuracy_metric : f_score;
     }
 };
 
