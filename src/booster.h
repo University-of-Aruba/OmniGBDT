@@ -15,9 +15,6 @@ struct CacheInfo {
     vector<int32_t> order;
     vector<Histogram> hist;
 
-    CacheInfo(int n, int d, SplitInfo &x, vector<int32_t> &y, vector<Histogram> &z) :
-            node(n), depth(d), split(x), order(y), hist(z) {};
-
     bool operator>(const CacheInfo &x) const { return split.gain > x.split.gain; }
 };
 
@@ -80,6 +77,8 @@ protected:
     Objective obj;
 
     void init_preds(double *, int) const;
+    bool can_split(int depth, int rows, int leaves) const;
+    vector<Histogram> build_histograms(vector<int32_t> &order, int columns);
     void queue_split(int leaf, int depth, vector<int32_t> &order, vector<Histogram> &hist);
     virtual LeafNode fit_leaf(Histogram &hist, int parent) = 0;
     virtual void hist_all(vector<int32_t> &, vector<Histogram> &) = 0;

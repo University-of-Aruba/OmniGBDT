@@ -106,16 +106,16 @@ public:
         return l;
     }
 
-    inline void push(T const &x) {
+    inline void push(T &&x) {
         if (data.size() == max_size) {
             if (x > data[max_size - 1]) {
                 int i = search(x);
-                data.insert(data.begin() + i, x);
+                data.insert(data.begin() + i, std::move(x));
                 data.pop_back();
             }
         } else {
             int i = search(x);
-            data.insert(data.begin() + i, x);
+            data.insert(data.begin() + i, std::move(x));
         }
     }
 

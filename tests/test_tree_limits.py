@@ -18,8 +18,8 @@ def test_tree_limits_preserve_fitted_leaves(model_kind, max_leaves, hist_cache):
         max_leaves: Upper bound on the number of terminal leaves.
         hist_cache: Maximum number of pending split candidates.
     """
-    x = np.arange(32.0)[:, None]
-    target = x[:, 0] + 1
+    x = np.column_stack([np.ones(32), np.arange(32.0)])
+    target = x[:, 1] + 1
     params = dict(
         base_score=0.0, lr=1.0, reg_l2=0.0, min_samples=1, gamma=0.0,
         num_threads=1, verbosity=0, max_depth=4, max_leaves=max_leaves,

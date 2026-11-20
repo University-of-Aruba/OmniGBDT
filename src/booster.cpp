@@ -283,7 +283,7 @@ void BoosterSingle::get_score_opt(Histogram &Hist, double &opt, double &score_su
 
 void BoosterSingle::hist_all(vector<int32_t> &order, vector<Histogram> &Hist) {
 #pragma omp parallel for schedule(static)
-    for (int i = 0; i < hp.inp_dim; i++) {
+    for (int i = 0; i < static_cast<int>(Hist.size()); i++) {
         histogram_single(order, Hist[i], Train.Maps + i * Train.num, G, H);
     }
 }
@@ -335,15 +335,30 @@ LeafNode BoosterSingle::fit_leaf(Histogram &hist, int parent) {
     return leaf;
 }
 
+bool BoosterUtils::can_split(int depth, int rows, int leaves) const {
+    return leaves < hp.max_leaves && depth < hp.max_depth && hp.Max_caches > 0 &&
+           rows / 2 >= hp.min_samples;
+}
+
+vector<Histogram> BoosterUtils::build_histograms(vector<int32_t> &order, int columns) {
+    vector<Histogram> hist;
+    hist.reserve(columns);
+    for (int i = 0; i < columns; ++i) { hist.emplace_back(bin_nums[i], hp.out_dim); }
+    hist_all(order, hist);
+    return hist;
+}
+
 void BoosterUtils::queue_split(int leaf, int depth, vector<int32_t> &order, vector<Histogram> &hist) {
     // A binary tree with k splits already has k + 1 terminal leaves.
-    if (1 - tree.nonleaf_num >= hp.max_leaves || depth >= hp.max_depth ||
-        hp.Max_caches <= 0 || static_cast<int>(order.size()) / 2 < hp.min_samples) {
+    if (!can_split(depth, static_cast<int>(order.size()), 1 - tree.nonleaf_num)) {
         return;
     }
     boost_all(hist);
     if (meta.column >= 0 && meta.gain > hp.gamma) {
-        cache.push(CacheInfo(leaf, depth, meta, order, hist));
+        // Training reuses the root row order every round. Child buffers belong
+        // exclusively to this candidate and can be transferred to the queue.
+        auto rows = depth == 0 ? vector<int32_t>(order) : std::move(order);
+        cache.push(CacheInfo{leaf, depth, meta, std::move(rows), std::move(hist)});
     }
 }
 
@@ -357,9 +372,7 @@ void BoosterUtils::growth() {
     tree.clear();
     cache.data.clear();
 
-    vector<Histogram> root_hist;
-    for (auto bins : bin_nums) { root_hist.emplace_back(bins, hp.out_dim); }
-    hist_all(Train.Orders, root_hist);
+    auto root_hist = build_histograms(Train.Orders, can_split(0, Train.num, 1) ? hp.inp_dim : 1);
     tree.add_leaf(fit_leaf(root_hist[0], -1), true);
     queue_split(tree.leaf_num, 0, Train.Orders, root_hist);
 
@@ -374,12 +387,14 @@ void BoosterUtils::growth() {
         vector<int32_t> order_l(rows_l), order_r(rows_r);
         rebuild_order(info.order, order_l, order_r, Train.Maps + Train.num * split.column, split.bin);
 
-        vector<Histogram> smaller_hist;
-        for (auto bins : bin_nums) { smaller_hist.emplace_back(bins, hp.out_dim); }
+        // A terminal leaf takes its totals from feature zero. Preserve its summation order
+        // while skipping all other features if neither child can produce a split.
+        const int columns = can_split(info.depth + 1, max(rows_l, rows_r), tree.leaf_num + 1)
+                            ? hp.inp_dim : 1;
         bool right_is_smaller = rows_r <= rows_l;
-        hist_all(right_is_smaller ? order_r : order_l, smaller_hist);
+        auto smaller_hist = build_histograms(right_is_smaller ? order_r : order_l, columns);
 #pragma omp parallel for schedule(static)
-        for (int i = 0; i < hp.inp_dim; ++i) { info.hist[i] - smaller_hist[i]; }
+        for (int i = 0; i < columns; ++i) { info.hist[i] - smaller_hist[i]; }
         auto &hist_l = right_is_smaller ? info.hist : smaller_hist;
         auto &hist_r = right_is_smaller ? smaller_hist : info.hist;
 
@@ -404,7 +419,7 @@ void BoosterSingle::update() {
     if (Eval.num > 0) {
         tree.pred_value_single(Eval.Features, Eval.Preds, hp, Eval.num);
     }
-    trees.push_back(tree);
+    trees.push_back(std::move(tree));
 }
 
 void BoosterSingle::train(int num_rounds) {
@@ -432,7 +447,7 @@ void BoosterSingle::train(int num_rounds) {
         obj.f_grad(Train, G, H, Train.num, 1);
         growth();
         update();
-        double score = obj.f_score(Train, Train.num, 1);
+        const double score = hp.show_round_metrics() ? obj.f_score(Train, Train.num, 1) : 0.0;
         if (evaluate) {
             double metric = obj.f_metric(Eval, Eval.num, 1);
             if (hp.show_round_metrics()) { showloss(score, metric, i); }
@@ -491,7 +506,7 @@ void BoosterSingle::train_multi(int num_rounds, int out_dim) {
                 if (Eval.num > 0) { Eval.Preds -= (out_dim - 1) * Eval.num; }
             }
         }
-        double score = obj.f_score(Train, Train.num, out_dim);
+        const double score = hp.show_round_metrics() ? obj.f_score(Train, Train.num, out_dim) : 0.0;
         if (evaluate) {
             double metric = obj.f_metric(Eval, Eval.num, out_dim);
             if (hp.show_round_metrics()) { showloss(score, metric, i); }
@@ -619,7 +634,7 @@ BoosterMulti::get_score_opt(Histogram &Hist, vector<pair<double, int>> &opt, vec
 
 void BoosterMulti::hist_all(vector<int32_t> &order, vector<Histogram> &Hist) {
 #pragma omp parallel for schedule(static)
-    for (int i = 0; i < hp.inp_dim; ++i) {
+    for (int i = 0; i < static_cast<int>(Hist.size()); ++i) {
         histogram_multi(order, Hist[i], Train.Maps + i * Train.num, G, H, hp.out_dim);
     }
 }
@@ -800,7 +815,7 @@ void BoosterMulti::update() {
     if (Eval.num > 0) {
         tree.pred_value_multi(Eval.Features, Eval.Preds, hp, Eval.num);
     }
-    trees.push_back(tree);
+    trees.push_back(std::move(tree));
 }
 
 void BoosterMulti::train(int num_rounds) {
@@ -829,7 +844,7 @@ void BoosterMulti::train(int num_rounds) {
         obj.f_grad(Train, G, H, Train.num, hp.out_dim);
         growth();
         update();
-        double score = obj.f_score(Train, Train.num, hp.out_dim);
+        const double score = hp.show_round_metrics() ? obj.f_score(Train, Train.num, hp.out_dim) : 0.0;
         if (evaluate) {
             double metric = obj.f_metric(Eval, Eval.num, hp.out_dim);
             if (hp.show_round_metrics()) { showloss(score, metric, i); }

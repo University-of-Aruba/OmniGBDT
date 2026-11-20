@@ -1,12 +1,10 @@
-import numpy as np
-from multiprocessing import Pool
+from concurrent.futures import ThreadPoolExecutor
 from functools import partial
+from math import ceil
 from numbers import Integral
+from operator import index
 
-try:
-    from numba import jit
-except ImportError:
-    jit = None
+import numpy as np
 
 
 def _construct_bin_column_impl(x: np.array, max_bins: int) -> np.array:
@@ -19,8 +17,8 @@ def _construct_bin_column_impl(x: np.array, max_bins: int) -> np.array:
     Returns:
         Array of at most ``max_bins - 1`` inclusive upper bounds.
     """
+    sum_cnt = len(x)
     x, cnt = np.unique(x, return_counts=True)
-    sum_cnt = np.sum(cnt)
     if len(x) == 1 or max_bins == 1:
         return np.array([], 'float64')
     if len(x) <= max_bins:
@@ -37,25 +35,26 @@ def _construct_bin_column_impl(x: np.array, max_bins: int) -> np.array:
             cuts = lower * 0.5 + upper * 0.5
         return np.clip(cuts, lower, np.nextafter(upper, lower))
 
+    if len(x) == sum_cnt:
+        # Distinct values are divided into equal-count bins, with larger bins first.
+        size, extra = divmod(len(x), max_bins)
+        edges = np.arange(1, max_bins)
+        return x[size * edges + np.minimum(edges, extra) - 1]
+
     cumulative = np.cumsum(cnt)
     cuts = np.empty(max_bins - 1, dtype=np.float64)
     target = len(x) / float(max_bins)
-    used = 0
-    for i in range(len(x) - 1):
+    for used in range(max_bins - 1):
         # Reserve one distinct value for each remaining bin, including the last.
-        if cumulative[i] >= target or len(x) - i == max_bins - used:
-            cuts[used] = x[i]
-            used += 1
-            if used == len(cuts):
-                break
-            target = cumulative[i] + (sum_cnt - cumulative[i]) / (max_bins - used)
+        last = len(x) - max_bins + used
+        i = cumulative.searchsorted(ceil(target))
+        if i >= last:
+            cuts[used:] = x[last:-1]
+            break
+        cuts[used] = x[i]
+        seen = int(cumulative[i])
+        target = seen + (sum_cnt - seen) / (max_bins - used - 1)
     return cuts
-
-
-if jit is not None:
-    _construct_bin_column_jitted = jit(forceobj=True)(_construct_bin_column_impl)
-else:
-    _construct_bin_column_jitted = None
 
 
 def construct_bin_column(x: np.array, max_bins: int) -> np.array:
@@ -71,23 +70,13 @@ def construct_bin_column(x: np.array, max_bins: int) -> np.array:
     Raises:
         ValueError: If the column or the requested bin count is invalid.
     """
-    global _construct_bin_column_jitted
-
     if not isinstance(max_bins, Integral) or not 1 <= max_bins <= np.iinfo(np.uint16).max:
         raise ValueError("max_bins must be an integer between 1 and 65535.")
     x = np.asarray(x, dtype=np.float64)
     if x.ndim != 1 or x.size == 0 or not np.isfinite(x).all():
         raise ValueError("A feature column must be one-dimensional, nonempty and finite.")
 
-    if _construct_bin_column_jitted is None:
-        return _construct_bin_column_impl(x, max_bins)
-
-    try:
-        return _construct_bin_column_jitted(x, max_bins)
-    except Exception:
-        # Keep the Python path available when Numba is unavailable or unstable.
-        _construct_bin_column_jitted = None
-        return _construct_bin_column_impl(x, max_bins)
+    return _construct_bin_column_impl(x, int(max_bins))
 
 
 def map_bin_column(x, bins):
@@ -104,6 +93,15 @@ def map_bin_column(x, bins):
 
 
 def _get_bins_maps(x_column: np.array, max_bins: int) -> tuple:
+    """Construct native histogram cuts and row assignments for one input column.
+
+    Args:
+        x_column: Nonempty one-dimensional array of feature values.
+        max_bins: Maximum number of bins.
+
+    Returns:
+        Increasing cuts and the uint16 index for each row.
+    """
     bins = construct_bin_column(x_column, max_bins)
     maps = map_bin_column(x_column, bins)
 
@@ -123,26 +121,20 @@ def get_bins_maps(x: np.array, max_bins: int, threads: int = 1) -> (list, np.arr
 
     Raises:
         ValueError: If the matrix, bin budget, or worker count is invalid.
+        TypeError: If the parallel worker count is not integral.
     """
     x = np.asarray(x)
     if x.ndim != 2 or 0 in x.shape:
         raise ValueError("Features must be a nonempty two-dimensional matrix.")
-    out = []
+    build_column = partial(_get_bins_maps, max_bins=max_bins)
     if threads == 1:
-        for i in range(x.shape[-1]):
-            out.append(_get_bins_maps(x[:, i], max_bins))
+        columns = map(build_column, x.T)
+        bins, maps = zip(*columns)
     else:
-        x = list(np.transpose(x))
-        f = partial(_get_bins_maps, max_bins=max_bins)
-        with Pool(threads) as pool:
-            out = pool.map(f, x)
-
-    bins, maps = [], []
-    while out:
-        _bin, _map = out.pop(0)
-        bins.append(_bin)
-        maps.append(_map)
-    return bins, np.stack(maps, axis=1)
+        workers = None if threads is None else index(threads)
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            bins, maps = zip(*pool.map(build_column, x.T))
+    return list(bins), np.stack(maps, axis=1)
 
 
 if __name__ == '__main__':

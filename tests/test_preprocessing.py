@@ -26,6 +26,46 @@ def test_skewed_histogram_agrees_with_native_prediction():
         booster.close()
 
 
+@pytest.mark.parametrize(("counts", "max_bins", "expected_cuts"), [
+    ([1] * 10, 4, [2, 5, 7]),
+    ([1, 4, 1, 1, 2, 1, 3, 1, 1, 1], 4, [1, 4, 6]),
+    ([1, 1, 1, 1, 1, 1, 1, 1, 40, 1], 6, [1, 5, 6, 7, 8]),
+], ids=["distinct", "repeated", "reserve-remaining-values"])
+def test_histogram_cut_placement_across_workers(counts, max_bins, expected_cuts):
+    """Preserve budgeted cut locations and inclusive assignments across workers.
+
+    Args:
+        counts: Occurrences of successive distinct input values.
+        max_bins: Histogram bin budget below the distinct value count.
+        expected_cuts: Historically selected inclusive upper bounds.
+    """
+    values = np.repeat(np.arange(len(counts), dtype=np.float64), counts)
+    x = np.column_stack([values[::-1], values + 100])
+    expected_cuts = np.asarray(expected_cuts, dtype=np.float64)
+    expected_maps = np.column_stack([
+        np.searchsorted(expected_cuts, values[::-1]),
+        np.searchsorted(expected_cuts, values),
+    ])
+    for workers in (1, 2):
+        cuts, maps = get_bins_maps(x, max_bins, threads=workers)
+        np.testing.assert_array_equal(cuts[0], expected_cuts)
+        np.testing.assert_array_equal(cuts[1], expected_cuts + 100)
+        np.testing.assert_array_equal(maps, expected_maps)
+        assert maps.dtype == np.uint16
+
+
+@pytest.mark.parametrize(("workers", "error"), [(0, ValueError), (1.5, TypeError)])
+def test_invalid_histogram_worker_count(workers, error):
+    """Reject zero and fractional worker counts before running histogram tasks.
+
+    Args:
+        workers: Unsupported worker limit.
+        error: Expected exception type.
+    """
+    with pytest.raises(error):
+        get_bins_maps(np.ones((2, 2)), 2, threads=workers)
+
+
 @pytest.mark.parametrize("values", [
     [1e308, 1.1e308],
     [-1.1e308, -1e308, 1e308],

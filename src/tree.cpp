@@ -13,13 +13,10 @@ void Tree::pred_value_single_(double *features, double *preds, HyperParameter &h
     for (size_t i = 0; i < n; ++i) {
         node = -1;
         while (node < 0) {
-            if (features[t_inp + nonleaf[node].column] > nonleaf[node].threshold) {
-                node = nonleaf[node].right;
-            } else {
-                node = nonleaf[node].left;
-            }
+            const auto &split = nonleaf.at(node);
+            node = features[t_inp + split.column] > split.threshold ? split.right : split.left;
         }
-        if (node != 0) { preds[i] += leaf[node].values[0]; }
+        if (node != 0) { preds[i] += leaf.at(node).values[0]; }
         t_inp += hp.inp_dim;
     }
 }
@@ -40,14 +37,11 @@ void Tree::pred_value_multi_(double *features, double *preds, HyperParameter &hp
     for (size_t i = 0; i < n; ++i) {
         node = -1;
         while (node < 0) {
-            if (features[t_inp + nonleaf[node].column] > nonleaf[node].threshold) {
-                node = nonleaf[node].right;
-            } else {
-                node = nonleaf[node].left;
-            }
+            const auto &split = nonleaf.at(node);
+            node = features[t_inp + split.column] > split.threshold ? split.right : split.left;
         }
         if (node != 0) {
-            for (auto &p : leaf[node].values) {
+            for (auto &p : leaf.at(node).values) {
                 preds[t_out++] += p;
             }
         } else {
@@ -106,13 +100,10 @@ void Tree::pred_value_single(uint16_t *features, double *preds, HyperParameter &
     for (int i = 0; i < n; ++i) {
         int node = -1;
         while (node < 0) {
-            if (features[i + n * nonleaf[node].column] > nonleaf[node].bin) {
-                node = nonleaf[node].right;
-            } else {
-                node = nonleaf[node].left;
-            }
+            const auto &split = nonleaf.at(node);
+            node = features[i + n * split.column] > split.bin ? split.right : split.left;
         }
-        if (node != 0) { preds[i] += leaf[node].values[0]; }
+        if (node != 0) { preds[i] += leaf.at(node).values[0]; }
     }
 }
 
@@ -134,14 +125,11 @@ void Tree::pred_value_multi(uint16_t *features, double *preds, HyperParameter &h
         int node = -1;
         int t_out = i * hp.out_dim;
         while (node < 0) {
-            if (features[i + n * nonleaf[node].column] > nonleaf[node].bin) {
-                node = nonleaf[node].right;
-            } else {
-                node = nonleaf[node].left;
-            }
+            const auto &split = nonleaf.at(node);
+            node = features[i + n * split.column] > split.bin ? split.right : split.left;
         }
         if (node != 0) {
-            for (auto &p : leaf[node].values) {
+            for (auto &p : leaf.at(node).values) {
                 preds[t_out++] += p;
             }
         }
