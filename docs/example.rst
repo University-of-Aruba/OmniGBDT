@@ -79,6 +79,58 @@ The example below uses the `UCI Machine Learning Repository Stock Portfolio Perf
 
 The UCI export includes both formatted percentage columns and normalized numeric target columns. The example uses the normalized target columns from ``data.original``, which carry the ``.1`` suffix in the spreadsheet-derived column names. ``base_score`` remains unset, so regression training starts from the training-label mean automatically.
 
+Comparison with XGBoost vector leaves
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+OmniGBDT and XGBoost 3.4.1 both retained 84 boosting rounds on the example split
+when their leaf settings were matched. The table reports test RMSE across the six
+normalized targets. The last two columns average ten splits each (seeds 0 through 9).
+
+.. list-table::
+   :header-rows: 1
+
+   * - Model
+     - Example split
+     - Random rows
+     - Unseen portfolios
+   * - OmniGBDT 0.6.0
+     - 0.12013
+     - 0.11974
+     - 0.12408
+   * - XGBoost 3.4.1, matched leaf settings
+     - 0.12013
+     - 0.11974
+     - 0.12765
+   * - XGBoost 3.4.1, default leaf settings
+     - 0.12599
+     - 0.12363
+     - 0.13105
+   * - Training-target mean
+     - 0.14087
+     - 0.13749
+     - 0.14670
+
+All 63 test rows in the example represent portfolios also seen in training.
+Grouping by portfolio keeps all five observations for each portfolio in one partition.
+Two of the ten grouped splits accounted for about 90% of the mean difference
+between OmniGBDT and matched XGBoost. With ``subsample=0.8`` in both libraries,
+their grouped mean RMSE was 0.12279 and 0.12658, respectively.
+
+The matched XGBoost run used ``multi_strategy="multi_output_tree"``,
+``min_child_weight=20``, and ``gamma=0.012``. Each model used one CPU thread.
+On an Apple M2, the median of 11 warm fits on the example split was 3.48 ms
+for OmniGBDT at commit ``8274e88`` and 12.07 ms for matched XGBoost,
+including data preparation.
+
+To repeat the comparison from the repository root:
+
+.. code-block:: bash
+
+   python -m pip install "omnigbdt==0.6.0" "xgboost==3.4.1"
+   curl -fL https://archive.ics.uci.edu/static/public/390/data.csv -o stock.csv
+   python examples/stock_portfolio_comparison.py stock.csv results.json
+   python examples/stock_portfolio_comparison.py stock.csv results-80.json --subsample 0.8
+
 Comparing ``SingleOutputGBDT`` and ``MultiOutputGBDT``
 ------------------------------------------------------
 
