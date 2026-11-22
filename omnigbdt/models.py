@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import ctypes
 import os
-from numbers import Real
+from decimal import Context, Decimal, localcontext
+from numbers import Integral, Real
 from pathlib import Path
 import stat
 import tempfile
@@ -24,6 +25,114 @@ ObjectiveCallback = Callable[[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndar
 MetricCallback = Callable[[np.ndarray, np.ndarray], float]
 
 
+def _factor_near_singular_metric(metric):
+    """Resolve small positive pivots and null directions of a validated metric.
+
+    Args:
+        metric: Finite float64 matrix with positive diagonal and symmetry and
+            positive semidefiniteness already checked to float64 roundoff.
+
+    Returns:
+        A float64 factor with one row per resolved positive direction, in the
+        original coefficient units, or None if the matrix is slightly
+        indefinite and needs eigenvalue clipping.
+    """
+    # Normalizing in float64 can make an exact null direction look positive.
+    # Only this ambiguous case needs extra precision, once at model setup.
+    with localcontext(Context(prec=50)):
+        original = np.array([[Decimal.from_float(float(x)) for x in row] for row in metric])
+        scales = np.sqrt(original.diagonal())
+        remainder = ((original + original.T) / 2) / np.outer(scales, scales)
+        rows = []
+        # Pivot the unit-diagonal matrix to resolve the strongest directions first.
+        cutoff = Decimal(10) ** -45 * len(metric)
+        while len(rows) < len(metric):
+            pivot = int(np.argmax(remainder.diagonal()))
+            weight = remainder[pivot, pivot]
+            # In a PSD matrix, even the off-diagonal entries are bounded by
+            # the largest diagonal. A rounded Gram matrix can violate this.
+            if remainder.diagonal().min() < -cutoff or np.max(abs(remainder[pivot])) > weight + cutoff:
+                return None
+            if weight <= cutoff:
+                if np.max(abs(remainder)) > cutoff:
+                    return None
+                break
+            row = remainder[pivot].copy() / weight.sqrt()
+            rows.append(np.asarray(row * scales, dtype=np.float64))
+            remainder -= np.outer(row, row)
+            remainder[pivot, :] = remainder[:, pivot] = 0
+    return np.ascontiguousarray(rows)
+
+
+def _prepare_output_metric(value, width):
+    """Validate diagonal weights or factor a coupled quadratic loss.
+
+    Args:
+        value: Nonnegative diagonal weights or a symmetric positive-semidefinite
+            matrix in the original target coordinates.
+        width: Number of regression outputs.
+
+    Returns:
+        Contiguous float64 weights for a diagonal metric, or a
+        matrix R such that R.T @ R reproduces the supplied metric to roundoff.
+
+    Raises:
+        ValueError: If the metric is zero, nonfinite, or invalid for this width.
+    """
+    try:
+        metric = np.asarray(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("output_metric requires a numeric vector or square matrix.") from exc
+    if metric.shape not in ((width,), (width, width)):
+        raise ValueError(f"output_metric must have shape ({width},) or ({width}, {width}).")
+    if metric.dtype.kind not in "iuf":
+        raise ValueError("output_metric must contain real numbers.")
+    metric = np.asarray(metric, dtype=np.float64)
+    if not np.isfinite(metric).all():
+        raise ValueError("output_metric must contain finite values.")
+
+    diagonal = metric if metric.ndim == 1 else metric.diagonal()
+    if np.any(diagonal < 0) or not np.any(diagonal > 0):
+        raise ValueError("output_metric needs a nonnegative diagonal with a positive entry.")
+    if metric.ndim == 1 or np.count_nonzero(metric) == np.count_nonzero(diagonal):
+        return np.ascontiguousarray(diagonal)
+
+    # A zero diagonal in a PSD matrix forces its entire row and column to zero.
+    zeros = diagonal == 0
+    if np.any(metric[zeros]) or np.any(metric[:, zeros]):
+        raise ValueError("output_metric must be positive semidefinite.")
+    # Check PSD at unit diagonal so a high-magnitude output cannot conceal
+    # an invalid submatrix belonging to smaller coefficients.
+    scales = np.sqrt(diagonal)
+    safe_scales = np.where(zeros, 1.0, scales)
+    with np.errstate(over="ignore", invalid="ignore"):
+        normalized = (metric / safe_scales[:, None]) / safe_scales
+    tol = width * np.finfo(np.float64).eps
+    if not np.isfinite(normalized).all() or np.max(np.abs(normalized)) > 1.0 + tol:
+        raise ValueError("output_metric must be positive semidefinite.")
+    if not np.allclose(normalized, normalized.T, rtol=0.0, atol=tol):
+        raise ValueError("output_metric must be symmetric.")
+    normalized = (normalized + normalized.T) * 0.5
+    active = ~zeros
+    normalized = normalized[np.ix_(active, active)] if zeros.any() else normalized
+    eigenvalues, vectors = np.linalg.eigh(normalized)
+    roundoff = tol * eigenvalues[-1]
+    if eigenvalues[0] < -roundoff:
+        raise ValueError("output_metric must be positive semidefinite.")
+    factor = None
+    if eigenvalues[0] <= roundoff:
+        factor = _factor_near_singular_metric(metric[np.ix_(active, active)])
+    if factor is None:
+        positive = eigenvalues > roundoff
+        root = np.sqrt(eigenvalues[positive])[:, None] * vectors[:, positive].T
+        factor = np.ascontiguousarray(root * scales[active])
+    if zeros.any():
+        padded = np.zeros((factor.shape[0], width))
+        padded[:, active] = factor
+        return padded
+    return factor
+
+
 class BoostUtils:
     """Shared Python helpers around the native OmniGBDT booster objects."""
 
@@ -42,6 +151,7 @@ class BoostUtils:
         self._input_width = None
         self._active_out_dim = None
         self._active_loss = None
+        self._requires_builtin_mse = False
         self._resolved_base_scores = np.ones(1, dtype=np.float64) * 0.0
         self.lib = lib if lib is not None else load_lib()
 
@@ -365,7 +475,7 @@ class BoostUtils:
 
         Raises:
             ValueError: If dimensions, training parameters or loss are invalid.
-            RuntimeError: If the loaded library lacks requested row sampling.
+            RuntimeError: If the loaded library lacks a requested training feature.
         """
         if index(inp_dim) <= 0 or index(self.out_dim) <= 0:
             raise ValueError("Input and output dimensions must be positive.")
@@ -374,6 +484,25 @@ class BoostUtils:
                 raise ValueError(f"{name} must be at least {minimum}.")
         if self.params["loss"] not in (b"mse", b"bce", b"ce", b"ce_column"):
             raise ValueError("loss must be one of b'mse', b'bce', b'ce', b'ce_column'.")
+        metric = self.params["output_metric"]
+        projection_dim = self.params["projection_dim"]
+        if metric is not None or projection_dim is not None:
+            option = "output_metric" if metric is not None else "projection_dim"
+            if not self._multi_output or self.out_dim < 2 or self.params["loss"] != b"mse":
+                raise ValueError(f"{option} requires MultiOutputGBDT with at least two outputs and loss=b'mse'.")
+            if self.params["topk"] != 0 or self.params["reg_l1"] != 0:
+                raise ValueError(f"{option} requires dense leaves (topk=0) and reg_l1=0.")
+            reg_l2 = self.params["reg_l2"]
+            if not isinstance(reg_l2, Real) or not np.isfinite(reg_l2) or reg_l2 < 0:
+                raise ValueError(f"{option} requires finite, nonnegative reg_l2.")
+        if metric is not None and not hasattr(self.lib, "SetOutputMetric"):
+            raise RuntimeError("output_metric requires a native library with SetOutputMetric.")
+        if projection_dim is not None:
+            if (not isinstance(projection_dim, Integral) or isinstance(projection_dim, bool)
+                    or not 1 <= projection_dim <= self.out_dim):
+                raise ValueError("projection_dim must be an integer from 1 through out_dim.")
+            if not hasattr(self.lib, "SetProjectionDim"):
+                raise RuntimeError("projection_dim requires a native library with SetProjectionDim.")
         fraction = self.params["subsample"]
         if (
             not isinstance(fraction, Real)
@@ -385,26 +514,49 @@ class BoostUtils:
         if fraction < 1 and not hasattr(self.lib, "SetSubsample"):
             raise RuntimeError("Row subsampling requires a native library with SetSubsample.")
 
-    def _replace_booster(self, new_booster, inp_dim, base_scores):
+    def _replace_booster(self, new_booster, inp_dim, base_scores, output_metric=None):
         """Configure a newly constructed native booster and replace the current one.
 
         Args:
             new_booster: Owned native booster pointer.
             inp_dim: Number of input features.
             base_scores: Resolved initial margins for the new model.
+            output_metric: Optional diagonal weights or dense quadratic metric
+                factor from _prepare_output_metric. The booster copies its values.
 
         Raises:
-            ValueError: If the native booster rejects the sample fraction.
+            ValueError: If the native booster rejects the sample fraction, metric
+                or projection dimension.
+            RuntimeError: If the native library lacks equal-weight LSQ support.
         """
         fraction = self.params["subsample"]
-        if fraction < 1 and self.lib.SetSubsample(new_booster, float(fraction)) != 0:
+        projection_dim = self.params["projection_dim"]
+        try:
+            if fraction < 1 and self.lib.SetSubsample(new_booster, float(fraction)) != 0:
+                raise ValueError("Native booster rejected subsample.")
+            if output_metric is not None:
+                if output_metric.ndim == 1:
+                    if hasattr(self.lib, "SetDiagonalOutputWeights"):
+                        status = self.lib.SetDiagonalOutputWeights(new_booster, output_metric, self.out_dim)
+                    elif np.all(output_metric == output_metric[0]):
+                        raise RuntimeError("Equal output weights require an updated native OmniGBDT library.")
+                    else:
+                        status = self.lib.SetOutputMetric(new_booster, np.sqrt(output_metric), 0, self.out_dim)
+                else:
+                    status = self.lib.SetOutputMetric(new_booster, output_metric, output_metric.shape[0], self.out_dim)
+                if status != 0:
+                    raise ValueError("Native booster rejected output_metric.")
+            if projection_dim is not None and self.lib.SetProjectionDim(new_booster, int(projection_dim)) != 0:
+                raise ValueError("Native booster rejected projection_dim.")
+        except BaseException:
             getattr(self.lib, self._free_fn_name)(new_booster)
-            raise ValueError("Native booster rejected subsample.")
+            raise
         self.close()
         self._boostnode = new_booster
         self._input_width = inp_dim
         self._active_out_dim = self.out_dim
         self._active_loss = self.params["loss"]
+        self._requires_builtin_mse = output_metric is not None or projection_dim is not None
         self._apply_resolved_base_scores(base_scores)
         self._set_native_base_scores(base_scores)
 
@@ -481,8 +633,13 @@ class BoostUtils:
         return getattr(self, "label_eval", None) is not None and hasattr(self, "preds_eval")
 
     def _validate_custom_objective_support(self):
-        """Validate model-specific preconditions for the custom objective path."""
-        return None
+        """Check whether the fitted booster accepts user-supplied derivatives.
+
+        Raises:
+            ValueError: If the configured split scoring requires built-in MSE derivatives.
+        """
+        if self._requires_builtin_mse:
+            raise ValueError("A custom objective or manual boosting cannot be combined with output_metric or projection_dim.")
 
     def _validate_custom_training_configuration(self, objective, eval_metric, maximize):
         """Validate public custom-objective training arguments.
@@ -503,6 +660,7 @@ class BoostUtils:
             raise ValueError("Custom objectives require training labels.")
         if not callable(objective):
             raise TypeError("objective must be callable.")
+        self._validate_custom_objective_support()
         if eval_metric is not None and not callable(eval_metric):
             raise TypeError("eval_metric must be callable.")
         if self.early_stop > 0 and self._has_eval_labels():
@@ -510,7 +668,6 @@ class BoostUtils:
                 raise ValueError("Custom early stopping requires eval_metric.")
             if maximize is None:
                 raise ValueError("Custom early stopping requires maximize to be set explicitly.")
-        self._validate_custom_objective_support()
         splits = [(self.label, self.preds_train)]
         if self._has_eval_labels():
             splits.append((self.label_eval, self.preds_eval))
@@ -718,8 +875,14 @@ class BoostUtils:
         self._show_custom_summary(best_metric, best_round)
 
     def boost(self):
-        """Grow a single tree using the currently registered gradients and Hessians."""
+        """Grow a single tree using the currently registered gradients and Hessians.
+
+        Raises:
+            RuntimeError: If no live booster or gradient buffers are available.
+            ValueError: If the configured model does not support manual boosting.
+        """
         self._check_booster()
+        self._validate_custom_objective_support()
         if self._gh_buffers is None:
             raise RuntimeError("Call _set_gh(...) before boost().")
         self.lib.Boost(self._boostnode)
@@ -816,6 +979,7 @@ class BoostUtils:
             self._input_width = None
             self._active_out_dim = None
             self._active_loss = None
+            self._requires_builtin_mse = False
             for name in ("data", "label", "preds_train", "data_eval", "label_eval",
                          "preds_eval", "maps", "bins", "_native_train_label", "_native_eval_label"):
                 self.__dict__.pop(name, None)
@@ -973,6 +1137,8 @@ class MultiOutputGBDT(BoostUtils):
         if out_dim != self.out_dim:
             raise ValueError("set_booster output width must match the model's out_dim.")
         self._check_configuration(inp_dim)
+        metric = self.params["output_metric"]
+        output_metric = None if metric is None else _prepare_output_metric(metric, out_dim)
         resolved_base_scores = (self._resolve_base_scores() if base_scores is None
                                 else self._normalize_base_score_param(base_scores))
         new_booster = self.lib.MultiNew(
@@ -995,4 +1161,4 @@ class MultiOutputGBDT(BoostUtils):
             self.params["verbosity"],
             self.params["hist_cache"],
         )
-        self._replace_booster(new_booster, inp_dim, resolved_base_scores)
+        self._replace_booster(new_booster, inp_dim, resolved_base_scores, output_metric)

@@ -1,55 +1,37 @@
 # OmniGBDT
 
-OmniGBDT packages the original [GBDT-MO](https://github.com/zzd1992/GBDTMO) algorithm as a regular Python library. The native C++ training core remains in place, while the Python layer adds wheel-based installation, public custom-objective hooks, optional sklearn-compatible wrappers, and accuracy-oriented regression defaults.
+Use OmniGBDT to predict several targets with one gradient boosting model in Python. All targets share the same splits in each tree. Each leaf stores a vector of updates, one per target. The C++ implementation builds on [GBDT-MO](https://github.com/zzd1992/GBDTMO).
 
-At the mathematical level, GBDT-MO replaces the usual one-tree-per-target strategy with a single tree whose split score is the summed second-order objective gain across all outputs. This allows one tree to reuse shared structure across correlated targets, supports optional sparse leaves that update only the most relevant outputs, and extends histogram-based split search to the multi-output case so the costs of training remain practical at larger output dimensions.
+[Installation](#installation) · [First model](#first-model) · [Benchmarks](#benchmarks) · [API reference](https://omnigbdt.readthedocs.io/en/latest/api.html)
 
-The main public classes are `MultiOutputGBDT` and `SingleOutputGBDT`.
-
-## Why OmniGBDT
-
-- Joint multi-output gradient boosting from the original GBDT-MO research codebase
-- Standard `pip` and `uv` installation with the native library bundled inside the package
-- Public Python callbacks for custom gradients, Hessians, metrics, and early stopping
-- Fixed-thread deterministic CPU training through the public `deterministic` parameter
-- Optional sklearn-compatible wrappers for tools such as permutation importance
-- Accuracy-oriented regression defaults in the current fork: `num_rounds=200`, `lr=0.05`, `max_bins=128`, `early_stop=15`, and automatic mean initialization when `base_score` is unset
-
-For the original project, benchmark figures, experiment scripts, and upstream research context, please see:
-
-- Original repository: <https://github.com/zzd1992/GBDTMO>
-- Experiment and evaluation repository: <https://github.com/zzd1992/GBDTMO-EX>
+Train a joint model with `MultiOutputGBDT`, or use `SingleOutputGBDT` for a single target. In 0.7.0, `output_metric` sets how target errors count, and `projection_dim` sets how many random combinations of those errors each tree uses to choose splits. Both are optional. For custom objectives, use the Python callbacks. For pipelines and model selection, use the scikit-learn estimator.
 
 ## Installation
 
-Install the released package:
+Install the released package with pip.
 
 ```bash
 pip install omnigbdt
 ```
 
-or with `uv`:
+If you use uv, add OmniGBDT to your project.
 
 ```bash
 uv add omnigbdt
 ```
 
-Optional extras:
+To use plotting or scikit-learn integration, install the corresponding extra.
 
 ```bash
 pip install "omnigbdt[plot]"
 pip install "omnigbdt[sklearn]"
 ```
 
-The current wheel targets are:
+Wheels are available for Linux x86_64, Windows x86_64, and macOS 14 or later on Apple silicon. To try the 0.7.0 quadratic loss and random projection from source, run `python -m pip install .` from the repository root. [Source installation](docs/install.rst)
 
-- Linux x86_64
-- Windows x86_64
-- macOS arm64 (Apple Silicon, 14+)
+## First model
 
-## First Model
-
-The example below trains one `MultiOutputGBDT` model on two correlated targets using only NumPy:
+Train a model on two targets that share a signal. In this example, the model needs to predict both targets accurately and get their average right.
 
 ```python
 import numpy as np
@@ -73,11 +55,9 @@ X_test = X[320:]
 model = MultiOutputGBDT(
     out_dim=Y.shape[1],
     params={
-        "loss": b"mse",
-        "max_depth": 4,
-        "max_bins": 128,
-        "lr": 0.05,
-        "early_stop": 15,
+        "output_metric": np.array([[3, 1], [1, 3]]) / 8,
+        "projection_dim": 1,
+        "seed": 17,
         "num_threads": 1,
         "verbosity": Verbosity.SILENT,
     },
@@ -86,42 +66,40 @@ model.set_data((X_train, Y_train), (X_valid, Y_valid))
 model.train(200)
 
 preds = model.predict(X_test)
-print(preds.shape)
+print(preds.shape)  # (80, 2)
 ```
 
-`SingleOutputGBDT` can be used to train one model per target column as a simple baseline. A real-world financial benchmark based on the UCI Stock Portfolio Performance dataset, together with custom-objective and sklearn examples, is available in the [hosted examples page](https://omnigbdt.readthedocs.io/en/latest/example.html).
+The `output_metric` matrix, `np.array([[3, 1], [1, 3]]) / 8`, defines the coupled quadratic loss. For each row, half the weight goes to the mean of the two targets’ squared prediction errors. The other half goes to the squared difference between the predicted average and the true average.
 
-## Differences From The Original Package
+If both predictions are high by one, their average is also high by one. The loss is `0.5 × 1 + 0.5 × 1 = 1`. If one prediction is high by one and the other is low by one, each still has a squared error of 1, but their average is correct. The loss is then `0.5 × 1 + 0.5 × 0 = 0.5`.
 
-Compared with the upstream GBDT-MO repository, OmniGBDT currently adds:
+With `projection_dim=1`, each tree uses one fresh random combination of the weighted target errors to choose its splits. Each leaf still predicts both targets. Joly, Wehenkel and Geurts studied projecting residuals when growing trees. Iosipoi and Vakhrushev used projections to score candidate splits in SketchBoost. [Random output projections](https://arxiv.org/abs/1905.07558) · [SketchBoost](https://proceedings.neurips.cc/paper_files/paper/2022/hash/a36c3dbe676fa8445715a31a90c66ab3-Abstract-Conference.html)
 
-- standard Python packaging and bundled native-library loading
-- wheel automation for Linux, macOS, and Windows
-- public Python callback hooks for custom gradients, Hessians, metrics, and early stopping
-- public `deterministic` parameter for fixed-thread CPU repeatability on the same platform
-- optional sklearn-compatible wrappers
-- automatic regression mean initialization when `base_score` is omitted
-- scalar or per-output `base_score` values for `MultiOutputGBDT`
-- accuracy-oriented wrapper defaults for regression workflows
-- split gain thresholding through `gamma` that now applies consistently at the root and deeper nodes
+## Benchmarks
 
-Several targeted native-code fixes are also part of the fork, so same-seed runs are not guaranteed to match older buggy runs exactly. A fuller summary is available in the [Differences From Upstream page](https://omnigbdt.readthedocs.io/en/latest/differences.html).
+OmniGBDT 0.7.0 and XGBoost 3.4.1 used the same grouped cross-validation folds. Each test fold held out whole portfolios, building geometries or simulation games. Tuning and early stopping used only the training groups. The table reports **RMSE in the original target units** for both training losses. Lower is better within each dataset.
 
-## Documentation Guide
+| Dataset | Training loss | OmniGBDT full | OmniGBDT projected | XGBoost vector-leaf |
+| --- | --- | ---: | ---: | ---: |
+| Stock | MSE | 0.11839 | **0.11835** | 0.12145 |
+| Stock | Coupled quadratic | 0.11871 | **0.11851** | 0.12139 |
+| Energy | MSE | 8.209 | 8.462 | **7.681** |
+| Energy | Coupled quadratic | 10.787 | 10.671 | **7.667** |
+| SCM20D | MSE | 202.789 | **198.765** | 203.086 |
+| SCM20D | Coupled quadratic | 203.130 | **200.684** | 203.250 |
 
-- Hosted documentation: <https://omnigbdt.readthedocs.io>
-- Installation and source-build notes: [install page](https://omnigbdt.readthedocs.io/en/latest/install.html)
-- Worked examples, including the financial benchmark: [examples page](https://omnigbdt.readthedocs.io/en/latest/example.html)
-- Python API reference: [API page](https://omnigbdt.readthedocs.io/en/latest/api.html)
-- Parameter reference: [parameters page](https://omnigbdt.readthedocs.io/en/latest/parameters.html)
-- Fork-specific differences: [differences page](https://omnigbdt.readthedocs.io/en/latest/differences.html)
-- Development workflow: [development page](https://omnigbdt.readthedocs.io/en/latest/development.html)
+Projection made little difference on Stock. Its largest gain was on SCM20D, where it lowered MSE-trained RMSE by 2% versus full OmniGBDT. On the first SCM20D fold, projection cut fit time from 573 to 203 ms and increased batch prediction time from 1.66 to 1.93 ms. XGBoost had the lowest RMSE on Energy under both losses. [Quadratic scores, timings and fold details](docs/benchmarks.rst#nested-group-cross-validation) · [Per-repeat scores](docs/data/grouped-projection-benchmarks.json)
 
-## Project Provenance
+## Documentation
 
-This fork builds directly on the original GBDT-MO implementation by Zhendong Zhang and Cheolkon Jung.
+- [Installation and source builds](https://omnigbdt.readthedocs.io/en/latest/install.html)
+- [Worked examples](https://omnigbdt.readthedocs.io/en/latest/example.html)
+- [Python API](https://omnigbdt.readthedocs.io/en/latest/api.html) and [training parameters](https://omnigbdt.readthedocs.io/en/latest/parameters.html)
+- [Development guide](https://omnigbdt.readthedocs.io/en/latest/development.html)
 
-OmniGBDT is intended to make the package easier to build, install, and distribute. It is not the canonical source for the paper, benchmark tables, figures, or research documentation.
+## Project origins
+
+Zhendong Zhang and Cheolkon Jung developed the shared-tree, vector-leaf algorithm underlying OmniGBDT. [GBDT-MO paper](https://arxiv.org/abs/1909.04373) · [GBDT-MO source](https://github.com/zzd1992/GBDTMO) · [Upstream experiments](https://github.com/zzd1992/GBDTMO-EX) · [Differences in this fork](docs/differences.rst)
 
 ## Versioning
 
@@ -129,13 +107,11 @@ This fork follows Semantic Versioning independently from the upstream GBDT-MO re
 
 ## License
 
-This fork is distributed under the Apache License 2.0. The main license text for this fork is in [LICENSE](LICENSE).
-
-Because this repository incorporates and modifies the original GBDT-MO codebase, the original upstream MIT license notice from Zhendong Zhang is preserved in [LICENSE.upstream](LICENSE.upstream). Additional attribution and fork-specific notice text is provided in [NOTICE](NOTICE).
+OmniGBDT uses the [Apache License 2.0](LICENSE). The repository preserves the [upstream MIT license](LICENSE.upstream) for the original GBDT-MO code. See [NOTICE](NOTICE) for attribution.
 
 ## Citation
 
-If this project is used in research, please credit the original paper by Zhang and Jung:
+If you use OmniGBDT in your research, cite the original paper by Zhang and Jung.
 
 ```bibtex
 @article{zhang2020gbdt,
@@ -145,7 +121,8 @@ If this project is used in research, please credit the original paper by Zhang a
   volume={32},
   number={7},
   pages={3156--3167},
-  year={2020},
-  publisher={Ieee}
+  year={2021},
+  doi={10.1109/TNNLS.2020.3009776},
+  publisher={IEEE}
 }
 ```

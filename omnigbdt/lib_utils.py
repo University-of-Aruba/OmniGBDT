@@ -239,6 +239,15 @@ def _configure_library(lib):
     if hasattr(lib, "SetClassificationMetric"):
         lib.SetClassificationMetric.argtypes = [c_void_p, c_bool]
         lib.SetClassificationMetric.restype = c_int
+    if hasattr(lib, "SetOutputMetric"):
+        lib.SetOutputMetric.argtypes = [c_void_p, doubles, c_int, c_int]
+        lib.SetOutputMetric.restype = c_int
+    if hasattr(lib, "SetDiagonalOutputWeights"):
+        lib.SetDiagonalOutputWeights.argtypes = [c_void_p, doubles, c_int]
+        lib.SetDiagonalOutputWeights.restype = c_int
+    if hasattr(lib, "SetProjectionDim"):
+        lib.SetProjectionDim.argtypes = [c_void_p, c_int]
+        lib.SetProjectionDim.restype = c_int
 
     lib.Boost.argtypes = [c_void_p]
     lib.Train.argtypes = [c_void_p, c_int]
@@ -359,6 +368,8 @@ def default_params():
         "reg_l2": 1.0,
         "gamma": 1e-3,
         "loss": b"mse",
+        "output_metric": None,
+        "projection_dim": None,
         "early_stop": 15,
         "one_side": True,
         "verbosity": int(Verbosity.FULL),

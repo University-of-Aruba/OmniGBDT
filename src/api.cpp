@@ -26,6 +26,27 @@ OMNIGBDT_EXPORT int SetClassificationMetric(BoosterUtils *foo, bool use_logloss)
     return foo ? foo->set_classification_metric(use_logloss) : -1;
 }
 
+OMNIGBDT_EXPORT int SetProjectionDim(BoosterUtils *foo, int dim) {
+    auto *multi = dynamic_cast<BoosterMulti *>(foo);
+    return multi ? multi->set_projection_dim(dim) : -1;
+}
+
+OMNIGBDT_EXPORT int SetOutputMetric(BoosterMulti *foo, const double *factor, int rows, int columns) {
+    try {
+        return foo ? foo->set_output_metric(factor, rows, columns) : -1;
+    } catch (const std::exception &) {
+        return -1;
+    }
+}
+
+OMNIGBDT_EXPORT int SetDiagonalOutputWeights(BoosterMulti *foo, const double *weights, int columns) {
+    try {
+        return foo ? foo->set_diagonal_output_weights(weights, columns) : -1;
+    } catch (const std::exception &) {
+        return -1;
+    }
+}
+
 OMNIGBDT_EXPORT int GetBaseScoreSize(BoosterUtils *foo) {
     return foo->base_score_size();
 }

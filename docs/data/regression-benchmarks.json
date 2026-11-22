@@ -1,0 +1,3989 @@
+{
+  "stock_sha256": "24a9c22e57c5a12398b5a6c0c639f0a403ad4d7255dceace2ed6031b7c8a8a19",
+  "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "python": "3.13.9",
+  "numpy": "2.5.5",
+  "fit_repeats": 11,
+  "predict_repeats": 11,
+  "predictions_per_repeat": 10,
+  "profiles": {
+    "OmniGBDT": {
+      "version": "0.7.0",
+      "native_library": "_omnigbdt.dylib",
+      "cases": {
+        "stock-rows": {
+          "settings": {
+            "max_depth": 4,
+            "bins": 128,
+            "learning_rate": 0.05,
+            "round_cap": 200,
+            "patience": 15,
+            "threads": 1,
+            "model_seed": 0,
+            "L1": 0,
+            "L2": 1
+          },
+          "splits": [
+            {
+              "seed": 0,
+              "rounds": 84,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.12013364281284314,
+              "test_quadratic_rmse": 0.09905852078584003,
+              "baseline_rmse": 0.14087023287610484,
+              "baseline_quadratic_rmse": 0.115249377532913
+            },
+            {
+              "seed": 1,
+              "rounds": 55,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.12589738193397684,
+              "test_quadratic_rmse": 0.10460123196143653,
+              "baseline_rmse": 0.14215515466134157,
+              "baseline_quadratic_rmse": 0.11459222079084733
+            },
+            {
+              "seed": 2,
+              "rounds": 84,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.12481148028256381,
+              "test_quadratic_rmse": 0.10576118322978657,
+              "baseline_rmse": 0.14902951250147695,
+              "baseline_quadratic_rmse": 0.12396780199916707
+            },
+            {
+              "seed": 3,
+              "rounds": 90,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.1192371741377204,
+              "test_quadratic_rmse": 0.09969848472738517,
+              "baseline_rmse": 0.13113065182000028,
+              "baseline_quadratic_rmse": 0.10691848669365302
+            },
+            {
+              "seed": 4,
+              "rounds": 52,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.11846660051027182,
+              "test_quadratic_rmse": 0.09973946633137355,
+              "baseline_rmse": 0.13697399031817514,
+              "baseline_quadratic_rmse": 0.1125502855645753
+            },
+            {
+              "seed": 5,
+              "rounds": 99,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.1306551381724053,
+              "test_quadratic_rmse": 0.10829875130676685,
+              "baseline_rmse": 0.14380107827937816,
+              "baseline_quadratic_rmse": 0.11918621863441106
+            },
+            {
+              "seed": 6,
+              "rounds": 48,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.11166561827415274,
+              "test_quadratic_rmse": 0.09331452670054873,
+              "baseline_rmse": 0.13066806203974177,
+              "baseline_quadratic_rmse": 0.10784184234479219
+            },
+            {
+              "seed": 7,
+              "rounds": 70,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.113759485904258,
+              "test_quadratic_rmse": 0.09706441191347642,
+              "baseline_rmse": 0.1281484262787947,
+              "baseline_quadratic_rmse": 0.10581043322930345
+            },
+            {
+              "seed": 8,
+              "rounds": 91,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.11983800786527625,
+              "test_quadratic_rmse": 0.09683029060264017,
+              "baseline_rmse": 0.13793878888146285,
+              "baseline_quadratic_rmse": 0.11298287987670336
+            },
+            {
+              "seed": 9,
+              "rounds": 87,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.11297140557144927,
+              "test_quadratic_rmse": 0.09598457032822623,
+              "baseline_rmse": 0.1341936810851634,
+              "baseline_quadratic_rmse": 0.11134601166216669
+            }
+          ],
+          "mean_test_rmse": 0.11974359354649175,
+          "mean_test_quadratic_rmse": 0.10003514378874803,
+          "mean_baseline_rmse": 0.13749095787416396,
+          "mean_baseline_quadratic_rmse": 0.11304455583285325,
+          "seed0_fit_ms": [
+            3.427834,
+            3.220083,
+            3.356292,
+            3.292916,
+            3.283625,
+            3.307125,
+            3.207333,
+            3.126584,
+            3.126084,
+            3.129625,
+            3.127125
+          ],
+          "seed0_predict_ms": [
+            0.0981209,
+            0.0925667,
+            0.09185,
+            0.0925666,
+            0.09275,
+            0.0937833,
+            0.0956042,
+            0.0946583,
+            0.1026833,
+            0.1383208,
+            0.1443167
+          ],
+          "median_fit_ms": 3.220083,
+          "median_predict_ms": 0.0946583
+        },
+        "stock-portfolios": {
+          "settings": {
+            "max_depth": 4,
+            "bins": 128,
+            "learning_rate": 0.05,
+            "round_cap": 200,
+            "patience": 15,
+            "threads": 1,
+            "model_seed": 0,
+            "L1": 0,
+            "L2": 1
+          },
+          "splits": [
+            {
+              "seed": 0,
+              "rounds": 75,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.11506549684029609,
+              "test_quadratic_rmse": 0.09624759944977447,
+              "baseline_rmse": 0.14373458985897206,
+              "baseline_quadratic_rmse": 0.11935183433427252
+            },
+            {
+              "seed": 1,
+              "rounds": 87,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.12244787659195587,
+              "test_quadratic_rmse": 0.10222704320469385,
+              "baseline_rmse": 0.1461366090582773,
+              "baseline_quadratic_rmse": 0.12072135812129392
+            },
+            {
+              "seed": 2,
+              "rounds": 90,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.1156699002280724,
+              "test_quadratic_rmse": 0.09733175489800937,
+              "baseline_rmse": 0.1341872870151223,
+              "baseline_quadratic_rmse": 0.11222162134568088
+            },
+            {
+              "seed": 3,
+              "rounds": 85,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.12462236141423608,
+              "test_quadratic_rmse": 0.10702994313010024,
+              "baseline_rmse": 0.14834094658036104,
+              "baseline_quadratic_rmse": 0.124048051842932
+            },
+            {
+              "seed": 4,
+              "rounds": 200,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.13153413549183415,
+              "test_quadratic_rmse": 0.10704576590633723,
+              "baseline_rmse": 0.14793064461594718,
+              "baseline_quadratic_rmse": 0.12053382250975747
+            },
+            {
+              "seed": 5,
+              "rounds": 200,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.14589083926634316,
+              "test_quadratic_rmse": 0.11886520800679799,
+              "baseline_rmse": 0.16914926465743194,
+              "baseline_quadratic_rmse": 0.14043895272082751
+            },
+            {
+              "seed": 6,
+              "rounds": 66,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.11405707486670075,
+              "test_quadratic_rmse": 0.09625405280448972,
+              "baseline_rmse": 0.13795673961502158,
+              "baseline_quadratic_rmse": 0.11282104186068388
+            },
+            {
+              "seed": 7,
+              "rounds": 200,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.12384733784159714,
+              "test_quadratic_rmse": 0.1042784840347852,
+              "baseline_rmse": 0.14923613253534312,
+              "baseline_quadratic_rmse": 0.12470064840683559
+            },
+            {
+              "seed": 8,
+              "rounds": 88,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.1170689392461597,
+              "test_quadratic_rmse": 0.09796355265307144,
+              "baseline_rmse": 0.14028868281794116,
+              "baseline_quadratic_rmse": 0.11793653149338154
+            },
+            {
+              "seed": 9,
+              "rounds": 53,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.1306222458030389,
+              "test_quadratic_rmse": 0.11008784352349095,
+              "baseline_rmse": 0.14999051342080547,
+              "baseline_quadratic_rmse": 0.1268550748170382
+            }
+          ],
+          "mean_test_rmse": 0.12408262075902343,
+          "mean_test_quadratic_rmse": 0.10373312476115504,
+          "mean_baseline_rmse": 0.14669514101752232,
+          "mean_baseline_quadratic_rmse": 0.12196289374527035,
+          "seed0_fit_ms": [
+            2.63975,
+            2.603458,
+            2.5585,
+            2.582458,
+            2.577,
+            2.571375,
+            2.55875,
+            2.580167,
+            2.545291,
+            2.60075,
+            2.573666
+          ],
+          "seed0_predict_ms": [
+            0.0688375,
+            0.0691125,
+            0.0834459,
+            0.0674792,
+            0.0674833,
+            0.0673583,
+            0.06735,
+            0.0673541,
+            0.0681792,
+            0.0775292,
+            0.0679542
+          ],
+          "median_fit_ms": 2.577,
+          "median_predict_ms": 0.0679542
+        },
+        "readme": {
+          "settings": {
+            "max_depth": 4,
+            "bins": 128,
+            "learning_rate": 0.05,
+            "round_cap": 200,
+            "patience": 15,
+            "threads": 1,
+            "model_seed": 0,
+            "L1": 0,
+            "L2": 1
+          },
+          "splits": [
+            {
+              "seed": 0,
+              "rounds": 200,
+              "rows": [
+                240,
+                80,
+                80
+              ],
+              "outputs": 2,
+              "test_rmse": 0.47213902872001673,
+              "test_quadratic_rmse": 0.4705682540235774,
+              "baseline_rmse": 1.5817677462732458,
+              "baseline_quadratic_rmse": 1.5754326345671583
+            },
+            {
+              "seed": 1,
+              "rounds": 200,
+              "rows": [
+                240,
+                80,
+                80
+              ],
+              "outputs": 2,
+              "test_rmse": 0.4923948233103691,
+              "test_quadratic_rmse": 0.4901749069582122,
+              "baseline_rmse": 1.6143349028920408,
+              "baseline_quadratic_rmse": 1.6095688194517197
+            },
+            {
+              "seed": 2,
+              "rounds": 200,
+              "rows": [
+                240,
+                80,
+                80
+              ],
+              "outputs": 2,
+              "test_rmse": 0.6061237178592818,
+              "test_quadratic_rmse": 0.6039225769085795,
+              "baseline_rmse": 1.3969393958570997,
+              "baseline_quadratic_rmse": 1.3909646927767323
+            }
+          ],
+          "mean_test_rmse": 0.5235525232965559,
+          "mean_test_quadratic_rmse": 0.5215552459634564,
+          "mean_baseline_rmse": 1.531014015007462,
+          "mean_baseline_quadratic_rmse": 1.5253220489318702,
+          "seed0_fit_ms": [
+            8.865209,
+            8.641041,
+            8.622292,
+            8.841916,
+            8.857625,
+            8.844291,
+            8.859709,
+            8.8575,
+            8.882542,
+            8.866083,
+            9.3645
+          ],
+          "seed0_predict_ms": [
+            0.3279875,
+            0.32455,
+            0.3234291,
+            0.3235791,
+            0.3231459,
+            0.3275667,
+            0.3341583,
+            0.3155084,
+            0.3117834,
+            0.3143875,
+            0.3139042
+          ],
+          "median_fit_ms": 8.857625,
+          "median_predict_ms": 0.3234291
+        },
+        "independent": {
+          "settings": {
+            "max_depth": 5,
+            "bins": 128,
+            "learning_rate": 0.2,
+            "round_cap": 20,
+            "patience": 15,
+            "threads": 1,
+            "model_seed": 0,
+            "L1": 0,
+            "L2": 1
+          },
+          "splits": [
+            {
+              "seed": 0,
+              "rounds": 1,
+              "rows": [
+                10000,
+                10000,
+                10000
+              ],
+              "outputs": 5,
+              "test_rmse": 0.28880175574940264,
+              "test_quadratic_rmse": 0.22377338984301903,
+              "baseline_rmse": 0.2887721810060095,
+              "baseline_quadratic_rmse": 0.22374613494638637
+            },
+            {
+              "seed": 1,
+              "rounds": 1,
+              "rows": [
+                10000,
+                10000,
+                10000
+              ],
+              "outputs": 5,
+              "test_rmse": 0.28818916749535745,
+              "test_quadratic_rmse": 0.2230447146699814,
+              "baseline_rmse": 0.28812606010903624,
+              "baseline_quadratic_rmse": 0.22299562176805585
+            },
+            {
+              "seed": 2,
+              "rounds": 2,
+              "rows": [
+                10000,
+                10000,
+                10000
+              ],
+              "outputs": 5,
+              "test_rmse": 0.28865462058834546,
+              "test_quadratic_rmse": 0.2233054975261833,
+              "baseline_rmse": 0.2885949812051874,
+              "baseline_quadratic_rmse": 0.22325119074674524
+            }
+          ],
+          "mean_test_rmse": 0.2885485146110352,
+          "mean_test_quadratic_rmse": 0.22337453401306126,
+          "mean_baseline_rmse": 0.28849774077341106,
+          "mean_baseline_quadratic_rmse": 0.22333098248706248,
+          "seed0_fit_ms": [
+            33.031417,
+            33.332958,
+            32.83075,
+            32.8905,
+            32.389125,
+            32.763,
+            32.753542,
+            32.971208,
+            32.901584,
+            32.758667,
+            33.010875
+          ],
+          "seed0_predict_ms": [
+            0.3886291,
+            0.399375,
+            0.402375,
+            0.3811125,
+            0.3829,
+            0.3857209,
+            0.3839167,
+            0.3798125,
+            0.3872334,
+            0.3838709,
+            0.3835791
+          ],
+          "median_fit_ms": 32.8905,
+          "median_predict_ms": 0.3839167
+        },
+        "energy-rows": {
+          "settings": {
+            "max_depth": 4,
+            "bins": 128,
+            "learning_rate": 0.05,
+            "round_cap": 200,
+            "patience": 15,
+            "threads": 1,
+            "model_seed": 0,
+            "L1": 0,
+            "L2": 1
+          },
+          "splits": [
+            {
+              "seed": 0,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.1954640719568557,
+              "test_quadratic_rmse": 1.0171207848666668,
+              "baseline_rmse": 9.811813559305287,
+              "baseline_quadratic_rmse": 9.775930863877742
+            },
+            {
+              "seed": 1,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.0855987111993313,
+              "test_quadratic_rmse": 0.9458319811485564,
+              "baseline_rmse": 9.523411326105583,
+              "baseline_quadratic_rmse": 9.490598097807876
+            },
+            {
+              "seed": 2,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.0956225769789911,
+              "test_quadratic_rmse": 0.9297842448456346,
+              "baseline_rmse": 9.885015512869217,
+              "baseline_quadratic_rmse": 9.854479641473503
+            },
+            {
+              "seed": 3,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.011943015615035,
+              "test_quadratic_rmse": 0.8647488520592721,
+              "baseline_rmse": 9.001374029942001,
+              "baseline_quadratic_rmse": 8.968656912896575
+            },
+            {
+              "seed": 4,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.1071999901996226,
+              "test_quadratic_rmse": 0.9390396642202157,
+              "baseline_rmse": 9.845283864723998,
+              "baseline_quadratic_rmse": 9.817408730536265
+            },
+            {
+              "seed": 5,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.11844332265855,
+              "test_quadratic_rmse": 0.9538018187449785,
+              "baseline_rmse": 10.106558359981209,
+              "baseline_quadratic_rmse": 10.073796543377137
+            },
+            {
+              "seed": 6,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 0.9822622484059612,
+              "test_quadratic_rmse": 0.8530798517055713,
+              "baseline_rmse": 9.94662454395489,
+              "baseline_quadratic_rmse": 9.923059377924927
+            },
+            {
+              "seed": 7,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.1794486752015798,
+              "test_quadratic_rmse": 1.018451643696973,
+              "baseline_rmse": 9.975200207697446,
+              "baseline_quadratic_rmse": 9.948131259232253
+            },
+            {
+              "seed": 8,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.0181959481999676,
+              "test_quadratic_rmse": 0.8632989188279446,
+              "baseline_rmse": 9.905275727307503,
+              "baseline_quadratic_rmse": 9.873758375918595
+            },
+            {
+              "seed": 9,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.1623651039576501,
+              "test_quadratic_rmse": 0.9800176509365737,
+              "baseline_rmse": 10.107231814172259,
+              "baseline_quadratic_rmse": 10.076727482617486
+            }
+          ],
+          "mean_test_rmse": 1.0956543664373544,
+          "mean_test_quadratic_rmse": 0.9365175411052387,
+          "mean_baseline_rmse": 9.810778894605939,
+          "mean_baseline_quadratic_rmse": 9.780254728566236,
+          "seed0_fit_ms": [
+            9.242875,
+            9.056625,
+            9.098541,
+            9.908291,
+            9.512542,
+            9.605083,
+            9.126125,
+            9.073,
+            9.074167,
+            9.130667,
+            9.244208
+          ],
+          "seed0_predict_ms": [
+            0.7559291,
+            0.7195333,
+            0.9766916,
+            0.7137875,
+            0.8910625,
+            0.8074375,
+            0.7107291,
+            0.7162417,
+            0.7766833,
+            0.84245,
+            0.7255542
+          ],
+          "median_fit_ms": 9.130667,
+          "median_predict_ms": 0.7559291
+        },
+        "energy-geometries": {
+          "settings": {
+            "max_depth": 4,
+            "bins": 128,
+            "learning_rate": 0.05,
+            "round_cap": 200,
+            "patience": 15,
+            "threads": 1,
+            "model_seed": 0,
+            "L1": 0,
+            "L2": 1
+          },
+          "splits": [
+            {
+              "seed": 0,
+              "rounds": 16,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 4.804422728911832,
+              "test_quadratic_rmse": 4.738362983539422,
+              "baseline_rmse": 7.708986171311012,
+              "baseline_quadratic_rmse": 7.666907313433562
+            },
+            {
+              "seed": 1,
+              "rounds": 200,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 9.165455945833923,
+              "test_quadratic_rmse": 9.14512668113488,
+              "baseline_rmse": 11.626978010383503,
+              "baseline_quadratic_rmse": 11.60287650160232
+            },
+            {
+              "seed": 2,
+              "rounds": 17,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 4.559515522457482,
+              "test_quadratic_rmse": 4.519321799235671,
+              "baseline_rmse": 7.824489195364175,
+              "baseline_quadratic_rmse": 7.799233936922537
+            },
+            {
+              "seed": 3,
+              "rounds": 31,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 5.716865785549891,
+              "test_quadratic_rmse": 5.6970442355559685,
+              "baseline_rmse": 8.370980700032177,
+              "baseline_quadratic_rmse": 8.354128982462104
+            },
+            {
+              "seed": 4,
+              "rounds": 59,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 10.892977531574072,
+              "test_quadratic_rmse": 10.888828736064006,
+              "baseline_rmse": 10.048533712836653,
+              "baseline_quadratic_rmse": 10.04077471363911
+            },
+            {
+              "seed": 5,
+              "rounds": 200,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 10.464578986893976,
+              "test_quadratic_rmse": 10.44305251641739,
+              "baseline_rmse": 8.914933329638885,
+              "baseline_quadratic_rmse": 8.883172114340075
+            },
+            {
+              "seed": 6,
+              "rounds": 73,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 8.889429596643536,
+              "test_quadratic_rmse": 8.839254431121491,
+              "baseline_rmse": 11.621441021368321,
+              "baseline_quadratic_rmse": 11.576989996599437
+            },
+            {
+              "seed": 7,
+              "rounds": 200,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 6.574424377491361,
+              "test_quadratic_rmse": 6.548718632941479,
+              "baseline_rmse": 8.26801648841481,
+              "baseline_quadratic_rmse": 8.236300912589856
+            },
+            {
+              "seed": 8,
+              "rounds": 5,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 8.531110490771724,
+              "test_quadratic_rmse": 8.50244373349987,
+              "baseline_rmse": 10.388435483973554,
+              "baseline_quadratic_rmse": 10.362894413757191
+            },
+            {
+              "seed": 9,
+              "rounds": 7,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 7.031785776853419,
+              "test_quadratic_rmse": 7.014813066455757,
+              "baseline_rmse": 10.440870587049902,
+              "baseline_quadratic_rmse": 10.428489407528758
+            }
+          ],
+          "mean_test_rmse": 7.663056674298121,
+          "mean_test_quadratic_rmse": 7.633696681596593,
+          "mean_baseline_rmse": 9.5213664700373,
+          "mean_baseline_quadratic_rmse": 9.495176829287495,
+          "seed0_fit_ms": [
+            2.03275,
+            2.012166,
+            2.08025,
+            2.0195,
+            1.969875,
+            1.90575,
+            1.940375,
+            2.013625,
+            1.896125,
+            1.906166,
+            1.88125
+          ],
+          "seed0_predict_ms": [
+            0.0471667,
+            0.0471917,
+            0.0475834,
+            0.051125,
+            0.0546958,
+            0.0625167,
+            0.0577416,
+            0.0578667,
+            0.05765,
+            0.0597167,
+            0.0517625
+          ],
+          "median_fit_ms": 1.969875,
+          "median_predict_ms": 0.0546958
+        },
+        "scm20d": {
+          "settings": {
+            "max_depth": 4,
+            "bins": 128,
+            "learning_rate": 0.05,
+            "round_cap": 200,
+            "patience": 15,
+            "threads": 1,
+            "model_seed": 0,
+            "L1": 0,
+            "L2": 1
+          },
+          "splits": [
+            {
+              "seed": 0,
+              "rounds": 79,
+              "rows": [
+                5971,
+                1492,
+                1503
+              ],
+              "outputs": 16,
+              "test_rmse": 198.1362961803775,
+              "test_quadratic_rmse": 162.1615829209702,
+              "baseline_rmse": 249.27554153387993,
+              "baseline_quadratic_rmse": 213.80379699516266
+            }
+          ],
+          "mean_test_rmse": 198.1362961803775,
+          "mean_test_quadratic_rmse": 162.1615829209702,
+          "mean_baseline_rmse": 249.27554153387993,
+          "mean_baseline_quadratic_rmse": 213.80379699516266,
+          "seed0_fit_ms": [
+            780.549167,
+            786.731708,
+            746.757875,
+            736.334584,
+            740.12575,
+            742.636,
+            738.052125,
+            744.033833,
+            759.343125,
+            741.800375,
+            742.161833
+          ],
+          "seed0_predict_ms": [
+            2.2075084,
+            2.2587458,
+            2.2544834,
+            2.2640333,
+            2.2547041,
+            2.2535625,
+            2.281875,
+            2.270525,
+            2.2568417,
+            2.2559542,
+            2.3028958
+          ],
+          "median_fit_ms": 742.636,
+          "median_predict_ms": 2.2568417
+        }
+      }
+    },
+    "XGBoost matched": {
+      "version": "3.4.1",
+      "native_library": "libxgboost.dylib",
+      "cases": {
+        "stock-rows": {
+          "settings": {
+            "max_depth": 4,
+            "bins": 128,
+            "learning_rate": 0.05,
+            "round_cap": 200,
+            "patience": 15,
+            "threads": 1,
+            "model_seed": 0,
+            "L1": 0,
+            "L2": 1
+          },
+          "splits": [
+            {
+              "seed": 0,
+              "rounds": 84,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.12013363831263897,
+              "test_quadratic_rmse": 0.09905851477667454,
+              "baseline_rmse": 0.14087023287610484,
+              "baseline_quadratic_rmse": 0.115249377532913
+            },
+            {
+              "seed": 1,
+              "rounds": 55,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.12589737994389988,
+              "test_quadratic_rmse": 0.1046012331709324,
+              "baseline_rmse": 0.14215515466134157,
+              "baseline_quadratic_rmse": 0.11459222079084733
+            },
+            {
+              "seed": 2,
+              "rounds": 84,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.12481147930772336,
+              "test_quadratic_rmse": 0.10576118571151712,
+              "baseline_rmse": 0.14902951250147695,
+              "baseline_quadratic_rmse": 0.12396780199916707
+            },
+            {
+              "seed": 3,
+              "rounds": 90,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.11923717529631571,
+              "test_quadratic_rmse": 0.09969848432379667,
+              "baseline_rmse": 0.13113065182000028,
+              "baseline_quadratic_rmse": 0.10691848669365302
+            },
+            {
+              "seed": 4,
+              "rounds": 52,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.11846660244799267,
+              "test_quadratic_rmse": 0.09973946980982228,
+              "baseline_rmse": 0.13697399031817514,
+              "baseline_quadratic_rmse": 0.1125502855645753
+            },
+            {
+              "seed": 5,
+              "rounds": 99,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.13065514024850852,
+              "test_quadratic_rmse": 0.10829875207130199,
+              "baseline_rmse": 0.14380107827937816,
+              "baseline_quadratic_rmse": 0.11918621863441106
+            },
+            {
+              "seed": 6,
+              "rounds": 48,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.11166561366791912,
+              "test_quadratic_rmse": 0.0933145218861436,
+              "baseline_rmse": 0.13066806203974177,
+              "baseline_quadratic_rmse": 0.10784184234479219
+            },
+            {
+              "seed": 7,
+              "rounds": 70,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.11375948457373683,
+              "test_quadratic_rmse": 0.09706441204734619,
+              "baseline_rmse": 0.1281484262787947,
+              "baseline_quadratic_rmse": 0.10581043322930345
+            },
+            {
+              "seed": 8,
+              "rounds": 91,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.11983800055226757,
+              "test_quadratic_rmse": 0.09683028333378459,
+              "baseline_rmse": 0.13793878888146285,
+              "baseline_quadratic_rmse": 0.11298287987670336
+            },
+            {
+              "seed": 9,
+              "rounds": 87,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.1129714155672506,
+              "test_quadratic_rmse": 0.09598457876177285,
+              "baseline_rmse": 0.1341936810851634,
+              "baseline_quadratic_rmse": 0.11134601166216669
+            }
+          ],
+          "mean_test_rmse": 0.11974359299182533,
+          "mean_test_quadratic_rmse": 0.10003514358930922,
+          "mean_baseline_rmse": 0.13749095787416396,
+          "mean_baseline_quadratic_rmse": 0.11304455583285325,
+          "seed0_fit_ms": [
+            11.648542,
+            11.295084,
+            11.218625,
+            11.217584,
+            11.281834,
+            11.298958,
+            11.174917,
+            11.155,
+            11.214291,
+            11.171875,
+            11.234
+          ],
+          "seed0_predict_ms": [
+            0.0995542,
+            0.0820708,
+            0.0816083,
+            0.0791709,
+            0.0816,
+            0.0821292,
+            0.1203792,
+            0.0859708,
+            0.0990917,
+            0.0817042,
+            0.0778791
+          ],
+          "median_fit_ms": 11.218625,
+          "median_predict_ms": 0.0820708
+        },
+        "stock-portfolios": {
+          "settings": {
+            "max_depth": 4,
+            "bins": 128,
+            "learning_rate": 0.05,
+            "round_cap": 200,
+            "patience": 15,
+            "threads": 1,
+            "model_seed": 0,
+            "L1": 0,
+            "L2": 1
+          },
+          "splits": [
+            {
+              "seed": 0,
+              "rounds": 75,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.12957946461320133,
+              "test_quadratic_rmse": 0.10526621943661622,
+              "baseline_rmse": 0.14373458985897206,
+              "baseline_quadratic_rmse": 0.11935183433427252
+            },
+            {
+              "seed": 1,
+              "rounds": 57,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.12360709160581385,
+              "test_quadratic_rmse": 0.10350409985125207,
+              "baseline_rmse": 0.1461366090582773,
+              "baseline_quadratic_rmse": 0.12072135812129392
+            },
+            {
+              "seed": 2,
+              "rounds": 36,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.11814192492757825,
+              "test_quadratic_rmse": 0.09915656485414791,
+              "baseline_rmse": 0.1341872870151223,
+              "baseline_quadratic_rmse": 0.11222162134568088
+            },
+            {
+              "seed": 3,
+              "rounds": 85,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.12467511659285611,
+              "test_quadratic_rmse": 0.10706281873995846,
+              "baseline_rmse": 0.14834094658036104,
+              "baseline_quadratic_rmse": 0.124048051842932
+            },
+            {
+              "seed": 4,
+              "rounds": 200,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.13154446196730168,
+              "test_quadratic_rmse": 0.10705235013201127,
+              "baseline_rmse": 0.14793064461594718,
+              "baseline_quadratic_rmse": 0.12053382250975747
+            },
+            {
+              "seed": 5,
+              "rounds": 200,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.14589077007874665,
+              "test_quadratic_rmse": 0.11886514576585752,
+              "baseline_rmse": 0.16914926465743194,
+              "baseline_quadratic_rmse": 0.14043895272082751
+            },
+            {
+              "seed": 6,
+              "rounds": 66,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.13158432959277683,
+              "test_quadratic_rmse": 0.10751081764833909,
+              "baseline_rmse": 0.13795673961502158,
+              "baseline_quadratic_rmse": 0.11282104186068388
+            },
+            {
+              "seed": 7,
+              "rounds": 200,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.12384730988425902,
+              "test_quadratic_rmse": 0.10427846434323526,
+              "baseline_rmse": 0.14923613253534312,
+              "baseline_quadratic_rmse": 0.12470064840683559
+            },
+            {
+              "seed": 8,
+              "rounds": 86,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.11701420993758797,
+              "test_quadratic_rmse": 0.09790999040255893,
+              "baseline_rmse": 0.14028868281794116,
+              "baseline_quadratic_rmse": 0.11793653149338154
+            },
+            {
+              "seed": 9,
+              "rounds": 53,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.1306222457162428,
+              "test_quadratic_rmse": 0.11008784336532387,
+              "baseline_rmse": 0.14999051342080547,
+              "baseline_quadratic_rmse": 0.1268550748170382
+            }
+          ],
+          "mean_test_rmse": 0.12765069249163646,
+          "mean_test_quadratic_rmse": 0.10606943145393007,
+          "mean_baseline_rmse": 0.14669514101752232,
+          "mean_baseline_quadratic_rmse": 0.12196289374527035,
+          "seed0_fit_ms": [
+            10.296917,
+            10.197042,
+            10.156042,
+            10.147625,
+            10.144917,
+            10.121,
+            10.112542,
+            10.892834,
+            11.301875,
+            10.26025,
+            10.163916
+          ],
+          "seed0_predict_ms": [
+            0.0791458,
+            0.0754417,
+            0.0753959,
+            0.0993875,
+            0.0742625,
+            0.0764291,
+            0.0755625,
+            0.073875,
+            0.0742042,
+            0.073725,
+            0.0741917
+          ],
+          "median_fit_ms": 10.163916,
+          "median_predict_ms": 0.0753959
+        },
+        "readme": {
+          "settings": {
+            "max_depth": 4,
+            "bins": 128,
+            "learning_rate": 0.05,
+            "round_cap": 200,
+            "patience": 15,
+            "threads": 1,
+            "model_seed": 0,
+            "L1": 0,
+            "L2": 1
+          },
+          "splits": [
+            {
+              "seed": 0,
+              "rounds": 200,
+              "rows": [
+                240,
+                80,
+                80
+              ],
+              "outputs": 2,
+              "test_rmse": 0.45279134209870725,
+              "test_quadratic_rmse": 0.45083918272725165,
+              "baseline_rmse": 1.5817677462732458,
+              "baseline_quadratic_rmse": 1.5754326345671583
+            },
+            {
+              "seed": 1,
+              "rounds": 200,
+              "rows": [
+                240,
+                80,
+                80
+              ],
+              "outputs": 2,
+              "test_rmse": 0.4949406686997281,
+              "test_quadratic_rmse": 0.4923794398328788,
+              "baseline_rmse": 1.6143349028920408,
+              "baseline_quadratic_rmse": 1.6095688194517197
+            },
+            {
+              "seed": 2,
+              "rounds": 200,
+              "rows": [
+                240,
+                80,
+                80
+              ],
+              "outputs": 2,
+              "test_rmse": 0.5950532879362131,
+              "test_quadratic_rmse": 0.5930885698901195,
+              "baseline_rmse": 1.3969393958570997,
+              "baseline_quadratic_rmse": 1.3909646927767323
+            }
+          ],
+          "mean_test_rmse": 0.5142617662448828,
+          "mean_test_quadratic_rmse": 0.5121023974834167,
+          "mean_baseline_rmse": 1.531014015007462,
+          "mean_baseline_quadratic_rmse": 1.5253220489318702,
+          "seed0_fit_ms": [
+            32.2205,
+            31.997625,
+            32.112708,
+            32.975042,
+            32.189333,
+            32.178667,
+            32.14325,
+            32.122083,
+            31.993708,
+            31.963125,
+            31.967792
+          ],
+          "seed0_predict_ms": [
+            0.1544084,
+            0.1479667,
+            0.1477042,
+            0.1501834,
+            0.14995,
+            0.1482,
+            0.1500875,
+            0.1502333,
+            0.1481541,
+            0.1494542,
+            0.1776708
+          ],
+          "median_fit_ms": 32.122083,
+          "median_predict_ms": 0.14995
+        },
+        "independent": {
+          "settings": {
+            "max_depth": 5,
+            "bins": 128,
+            "learning_rate": 0.2,
+            "round_cap": 20,
+            "patience": 15,
+            "threads": 1,
+            "model_seed": 0,
+            "L1": 0,
+            "L2": 1
+          },
+          "splits": [
+            {
+              "seed": 0,
+              "rounds": 1,
+              "rows": [
+                10000,
+                10000,
+                10000
+              ],
+              "outputs": 5,
+              "test_rmse": 0.28878479223781867,
+              "test_quadratic_rmse": 0.22375689733974632,
+              "baseline_rmse": 0.2887721810060095,
+              "baseline_quadratic_rmse": 0.22374613494638637
+            },
+            {
+              "seed": 1,
+              "rounds": 1,
+              "rows": [
+                10000,
+                10000,
+                10000
+              ],
+              "outputs": 5,
+              "test_rmse": 0.2882159445561143,
+              "test_quadratic_rmse": 0.22305907540995945,
+              "baseline_rmse": 0.28812606010903624,
+              "baseline_quadratic_rmse": 0.22299562176805585
+            },
+            {
+              "seed": 2,
+              "rounds": 1,
+              "rows": [
+                10000,
+                10000,
+                10000
+              ],
+              "outputs": 5,
+              "test_rmse": 0.28865598160220707,
+              "test_quadratic_rmse": 0.223293557518544,
+              "baseline_rmse": 0.2885949812051874,
+              "baseline_quadratic_rmse": 0.22325119074674524
+            }
+          ],
+          "mean_test_rmse": 0.28855223946538,
+          "mean_test_quadratic_rmse": 0.22336984342274993,
+          "mean_baseline_rmse": 0.28849774077341106,
+          "mean_baseline_quadratic_rmse": 0.22333098248706248,
+          "seed0_fit_ms": [
+            41.851625,
+            41.576583,
+            41.407333,
+            41.534292,
+            41.506125,
+            41.4955,
+            41.43,
+            41.454292,
+            41.454291,
+            41.496333,
+            41.428291
+          ],
+          "seed0_predict_ms": [
+            0.425475,
+            0.4223375,
+            0.4181416,
+            0.4264416,
+            0.4195917,
+            0.4200917,
+            0.4220625,
+            0.4203583,
+            0.4202042,
+            0.4495375,
+            0.4210708
+          ],
+          "median_fit_ms": 41.4955,
+          "median_predict_ms": 0.4210708
+        },
+        "energy-rows": {
+          "settings": {
+            "max_depth": 4,
+            "bins": 128,
+            "learning_rate": 0.05,
+            "round_cap": 200,
+            "patience": 15,
+            "threads": 1,
+            "model_seed": 0,
+            "L1": 0,
+            "L2": 1
+          },
+          "splits": [
+            {
+              "seed": 0,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.1954639584710645,
+              "test_quadratic_rmse": 1.0171206778860444,
+              "baseline_rmse": 9.811813559305287,
+              "baseline_quadratic_rmse": 9.775930863877742
+            },
+            {
+              "seed": 1,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.0855987651788093,
+              "test_quadratic_rmse": 0.9458320885680105,
+              "baseline_rmse": 9.523411326105583,
+              "baseline_quadratic_rmse": 9.490598097807876
+            },
+            {
+              "seed": 2,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.0956231666799459,
+              "test_quadratic_rmse": 0.9297847751876872,
+              "baseline_rmse": 9.885015512869217,
+              "baseline_quadratic_rmse": 9.854479641473503
+            },
+            {
+              "seed": 3,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.0119427231452132,
+              "test_quadratic_rmse": 0.8647484153435515,
+              "baseline_rmse": 9.001374029942001,
+              "baseline_quadratic_rmse": 8.968656912896575
+            },
+            {
+              "seed": 4,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.1072002848070734,
+              "test_quadratic_rmse": 0.939039824223058,
+              "baseline_rmse": 9.845283864723998,
+              "baseline_quadratic_rmse": 9.817408730536265
+            },
+            {
+              "seed": 5,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.1184438872818827,
+              "test_quadratic_rmse": 0.9538023067300817,
+              "baseline_rmse": 10.106558359981209,
+              "baseline_quadratic_rmse": 10.073796543377137
+            },
+            {
+              "seed": 6,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 0.9822626929627956,
+              "test_quadratic_rmse": 0.8530802252926791,
+              "baseline_rmse": 9.94662454395489,
+              "baseline_quadratic_rmse": 9.923059377924927
+            },
+            {
+              "seed": 7,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.1788221868483715,
+              "test_quadratic_rmse": 1.0181525873495094,
+              "baseline_rmse": 9.975200207697446,
+              "baseline_quadratic_rmse": 9.948131259232253
+            },
+            {
+              "seed": 8,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.0181967246034873,
+              "test_quadratic_rmse": 0.8632995725926979,
+              "baseline_rmse": 9.905275727307503,
+              "baseline_quadratic_rmse": 9.873758375918595
+            },
+            {
+              "seed": 9,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.1623654564125405,
+              "test_quadratic_rmse": 0.980018015612712,
+              "baseline_rmse": 10.107231814172259,
+              "baseline_quadratic_rmse": 10.076727482617486
+            }
+          ],
+          "mean_test_rmse": 1.0955919846391184,
+          "mean_test_quadratic_rmse": 0.9364878488786031,
+          "mean_baseline_rmse": 9.810778894605939,
+          "mean_baseline_quadratic_rmse": 9.780254728566236,
+          "seed0_fit_ms": [
+            20.554167,
+            20.227792,
+            20.258125,
+            20.193458,
+            20.283875,
+            20.123,
+            20.117333,
+            20.135125,
+            20.114959,
+            20.162792,
+            20.095708
+          ],
+          "seed0_predict_ms": [
+            0.2464167,
+            0.2432667,
+            0.2414417,
+            0.2427,
+            0.2446625,
+            0.2413875,
+            0.2432042,
+            0.2400583,
+            0.2429625,
+            0.2399417,
+            0.2465708
+          ],
+          "median_fit_ms": 20.162792,
+          "median_predict_ms": 0.2429625
+        },
+        "energy-geometries": {
+          "settings": {
+            "max_depth": 4,
+            "bins": 128,
+            "learning_rate": 0.05,
+            "round_cap": 200,
+            "patience": 15,
+            "threads": 1,
+            "model_seed": 0,
+            "L1": 0,
+            "L2": 1
+          },
+          "splits": [
+            {
+              "seed": 0,
+              "rounds": 1,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 7.277821615893831,
+              "test_quadratic_rmse": 7.233637106692435,
+              "baseline_rmse": 7.708986171311012,
+              "baseline_quadratic_rmse": 7.666907313433562
+            },
+            {
+              "seed": 1,
+              "rounds": 200,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 13.67495574364977,
+              "test_quadratic_rmse": 13.659046826408254,
+              "baseline_rmse": 11.626978010383503,
+              "baseline_quadratic_rmse": 11.60287650160232
+            },
+            {
+              "seed": 2,
+              "rounds": 1,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 7.36432426695434,
+              "test_quadratic_rmse": 7.337855964315379,
+              "baseline_rmse": 7.824489195364175,
+              "baseline_quadratic_rmse": 7.799233936922537
+            },
+            {
+              "seed": 3,
+              "rounds": 1,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 7.903574685896175,
+              "test_quadratic_rmse": 7.8861237290855835,
+              "baseline_rmse": 8.370980700032177,
+              "baseline_quadratic_rmse": 8.354128982462104
+            },
+            {
+              "seed": 4,
+              "rounds": 1,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 9.601209797876768,
+              "test_quadratic_rmse": 9.59338332148542,
+              "baseline_rmse": 10.048533712836653,
+              "baseline_quadratic_rmse": 10.04077471363911
+            },
+            {
+              "seed": 5,
+              "rounds": 200,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 5.678803751074647,
+              "test_quadratic_rmse": 5.637830174953734,
+              "baseline_rmse": 8.914933329638885,
+              "baseline_quadratic_rmse": 8.883172114340075
+            },
+            {
+              "seed": 6,
+              "rounds": 73,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 5.116808165559854,
+              "test_quadratic_rmse": 5.033484024707847,
+              "baseline_rmse": 11.621441021368321,
+              "baseline_quadratic_rmse": 11.576989996599437
+            },
+            {
+              "seed": 7,
+              "rounds": 200,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 3.2550396753261404,
+              "test_quadratic_rmse": 3.206820464404127,
+              "baseline_rmse": 8.26801648841481,
+              "baseline_quadratic_rmse": 8.236300912589856
+            },
+            {
+              "seed": 8,
+              "rounds": 61,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 3.2291951017896294,
+              "test_quadratic_rmse": 3.1698817187266926,
+              "baseline_rmse": 10.388435483973554,
+              "baseline_quadratic_rmse": 10.362894413757191
+            },
+            {
+              "seed": 9,
+              "rounds": 5,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 7.874842074066189,
+              "test_quadratic_rmse": 7.859404518310528,
+              "baseline_rmse": 10.440870587049902,
+              "baseline_quadratic_rmse": 10.428489407528758
+            }
+          ],
+          "mean_test_rmse": 7.097657487808735,
+          "mean_test_quadratic_rmse": 7.061746784909,
+          "mean_baseline_rmse": 9.5213664700373,
+          "mean_baseline_quadratic_rmse": 9.495176829287495,
+          "seed0_fit_ms": [
+            2.171833,
+            2.095708,
+            2.121333,
+            2.075625,
+            2.081875,
+            2.061917,
+            2.058667,
+            2.086958,
+            2.056708,
+            2.079875,
+            2.073375
+          ],
+          "seed0_predict_ms": [
+            0.0413833,
+            0.0389167,
+            0.0388292,
+            0.0383166,
+            0.0386291,
+            0.0384917,
+            0.0379791,
+            0.038125,
+            0.0395542,
+            0.0380167,
+            0.067425
+          ],
+          "median_fit_ms": 2.079875,
+          "median_predict_ms": 0.0386291
+        },
+        "scm20d": {
+          "settings": {
+            "max_depth": 4,
+            "bins": 128,
+            "learning_rate": 0.05,
+            "round_cap": 200,
+            "patience": 15,
+            "threads": 1,
+            "model_seed": 0,
+            "L1": 0,
+            "L2": 1
+          },
+          "splits": [
+            {
+              "seed": 0,
+              "rounds": 93,
+              "rows": [
+                5971,
+                1492,
+                1503
+              ],
+              "outputs": 16,
+              "test_rmse": 199.31063604737466,
+              "test_quadratic_rmse": 163.43809096769766,
+              "baseline_rmse": 249.27554153387993,
+              "baseline_quadratic_rmse": 213.80379699516266
+            }
+          ],
+          "mean_test_rmse": 199.31063604737466,
+          "mean_test_quadratic_rmse": 163.43809096769766,
+          "mean_baseline_rmse": 249.27554153387993,
+          "mean_baseline_quadratic_rmse": 213.80379699516266,
+          "seed0_fit_ms": [
+            1521.355334,
+            1529.570833,
+            1537.870791,
+            1525.055625,
+            1524.041291,
+            1520.503042,
+            1523.284541,
+            1524.857,
+            1550.776167,
+            1525.292833,
+            1544.521417
+          ],
+          "seed0_predict_ms": [
+            1.2743584,
+            1.1512292,
+            1.1312083,
+            1.1343708,
+            1.1275375,
+            1.1276333,
+            1.127325,
+            1.1336542,
+            1.1274709,
+            1.1282458,
+            1.1338916
+          ],
+          "median_fit_ms": 1525.055625,
+          "median_predict_ms": 1.1312083
+        }
+      }
+    },
+    "OmniGBDT quadratic": {
+      "version": "0.7.0",
+      "native_library": "_omnigbdt.dylib",
+      "cases": {
+        "stock-rows": {
+          "settings": {
+            "max_depth": 4,
+            "bins": 128,
+            "learning_rate": 0.05,
+            "round_cap": 200,
+            "patience": 15,
+            "threads": 1,
+            "model_seed": 0,
+            "L1": 0,
+            "L2": 1
+          },
+          "splits": [
+            {
+              "seed": 0,
+              "rounds": 200,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.12048865352515233,
+              "test_quadratic_rmse": 0.09952025126382752,
+              "baseline_rmse": 0.14087023287610484,
+              "baseline_quadratic_rmse": 0.115249377532913
+            },
+            {
+              "seed": 1,
+              "rounds": 42,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.12821799253185884,
+              "test_quadratic_rmse": 0.1058786032453078,
+              "baseline_rmse": 0.14215515466134157,
+              "baseline_quadratic_rmse": 0.11459222079084733
+            },
+            {
+              "seed": 2,
+              "rounds": 200,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.12560829782714478,
+              "test_quadratic_rmse": 0.10693115226341618,
+              "baseline_rmse": 0.14902951250147695,
+              "baseline_quadratic_rmse": 0.12396780199916707
+            },
+            {
+              "seed": 3,
+              "rounds": 60,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.11848178531169526,
+              "test_quadratic_rmse": 0.09874054918091424,
+              "baseline_rmse": 0.13113065182000028,
+              "baseline_quadratic_rmse": 0.10691848669365302
+            },
+            {
+              "seed": 4,
+              "rounds": 62,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.11882184295416393,
+              "test_quadratic_rmse": 0.10034189106984702,
+              "baseline_rmse": 0.13697399031817514,
+              "baseline_quadratic_rmse": 0.1125502855645753
+            },
+            {
+              "seed": 5,
+              "rounds": 51,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.12861350330459334,
+              "test_quadratic_rmse": 0.10652753493244295,
+              "baseline_rmse": 0.14380107827937816,
+              "baseline_quadratic_rmse": 0.11918621863441106
+            },
+            {
+              "seed": 6,
+              "rounds": 62,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.11164118370292407,
+              "test_quadratic_rmse": 0.09348839140496483,
+              "baseline_rmse": 0.13066806203974177,
+              "baseline_quadratic_rmse": 0.10784184234479219
+            },
+            {
+              "seed": 7,
+              "rounds": 80,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.11423776990525723,
+              "test_quadratic_rmse": 0.09772555878056192,
+              "baseline_rmse": 0.1281484262787947,
+              "baseline_quadratic_rmse": 0.10581043322930345
+            },
+            {
+              "seed": 8,
+              "rounds": 81,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.11903839186062319,
+              "test_quadratic_rmse": 0.09610401749978464,
+              "baseline_rmse": 0.13793878888146285,
+              "baseline_quadratic_rmse": 0.11298287987670336
+            },
+            {
+              "seed": 9,
+              "rounds": 77,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.11372558346400402,
+              "test_quadratic_rmse": 0.09668835669142653,
+              "baseline_rmse": 0.1341936810851634,
+              "baseline_quadratic_rmse": 0.11134601166216669
+            }
+          ],
+          "mean_test_rmse": 0.1198875004387417,
+          "mean_test_quadratic_rmse": 0.10019463063324936,
+          "mean_baseline_rmse": 0.13749095787416396,
+          "mean_baseline_quadratic_rmse": 0.11304455583285325,
+          "seed0_fit_ms": [
+            5.013876,
+            4.906833,
+            4.929292,
+            4.860584,
+            4.8832510000000005,
+            4.844292,
+            4.859333,
+            4.861001,
+            4.862375,
+            4.8759999999999994,
+            4.850708
+          ],
+          "seed0_predict_ms": [
+            0.12245,
+            0.1076166,
+            0.109125,
+            0.1122042,
+            0.11335,
+            0.1133083,
+            0.10905,
+            0.1057833,
+            0.1094792,
+            0.1082625,
+            0.1097125
+          ],
+          "median_fit_ms": 4.862375,
+          "median_predict_ms": 0.1094792
+        },
+        "stock-portfolios": {
+          "settings": {
+            "max_depth": 4,
+            "bins": 128,
+            "learning_rate": 0.05,
+            "round_cap": 200,
+            "patience": 15,
+            "threads": 1,
+            "model_seed": 0,
+            "L1": 0,
+            "L2": 1
+          },
+          "splits": [
+            {
+              "seed": 0,
+              "rounds": 77,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.11552797243187715,
+              "test_quadratic_rmse": 0.09647697369104835,
+              "baseline_rmse": 0.14373458985897206,
+              "baseline_quadratic_rmse": 0.11935183433427252
+            },
+            {
+              "seed": 1,
+              "rounds": 77,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.12191307600112264,
+              "test_quadratic_rmse": 0.10157075258867472,
+              "baseline_rmse": 0.1461366090582773,
+              "baseline_quadratic_rmse": 0.12072135812129392
+            },
+            {
+              "seed": 2,
+              "rounds": 77,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.11538058716563167,
+              "test_quadratic_rmse": 0.09715066306366905,
+              "baseline_rmse": 0.1341872870151223,
+              "baseline_quadratic_rmse": 0.11222162134568088
+            },
+            {
+              "seed": 3,
+              "rounds": 74,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.1257533755184535,
+              "test_quadratic_rmse": 0.10750499688378239,
+              "baseline_rmse": 0.14834094658036104,
+              "baseline_quadratic_rmse": 0.124048051842932
+            },
+            {
+              "seed": 4,
+              "rounds": 200,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.1310731683959956,
+              "test_quadratic_rmse": 0.10738758300187423,
+              "baseline_rmse": 0.14793064461594718,
+              "baseline_quadratic_rmse": 0.12053382250975747
+            },
+            {
+              "seed": 5,
+              "rounds": 200,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.14816466656316074,
+              "test_quadratic_rmse": 0.12027882355268467,
+              "baseline_rmse": 0.16914926465743194,
+              "baseline_quadratic_rmse": 0.14043895272082751
+            },
+            {
+              "seed": 6,
+              "rounds": 73,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.11385421521601945,
+              "test_quadratic_rmse": 0.09617154998460828,
+              "baseline_rmse": 0.13795673961502158,
+              "baseline_quadratic_rmse": 0.11282104186068388
+            },
+            {
+              "seed": 7,
+              "rounds": 75,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.12362729218950645,
+              "test_quadratic_rmse": 0.10428944269400652,
+              "baseline_rmse": 0.14923613253534312,
+              "baseline_quadratic_rmse": 0.12470064840683559
+            },
+            {
+              "seed": 8,
+              "rounds": 200,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.11769062924389978,
+              "test_quadratic_rmse": 0.09855147330017638,
+              "baseline_rmse": 0.14028868281794116,
+              "baseline_quadratic_rmse": 0.11793653149338154
+            },
+            {
+              "seed": 9,
+              "rounds": 76,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.13168996376543982,
+              "test_quadratic_rmse": 0.11039460744176148,
+              "baseline_rmse": 0.14999051342080547,
+              "baseline_quadratic_rmse": 0.1268550748170382
+            }
+          ],
+          "mean_test_rmse": 0.12446749464911068,
+          "mean_test_quadratic_rmse": 0.1039776866202286,
+          "mean_baseline_rmse": 0.14669514101752232,
+          "mean_baseline_quadratic_rmse": 0.12196289374527035,
+          "seed0_fit_ms": [
+            3.257584,
+            3.215584,
+            3.231874,
+            3.227417,
+            3.203625,
+            3.2522510000000002,
+            3.213625,
+            3.2022909999999998,
+            3.227791,
+            3.199583,
+            3.213792
+          ],
+          "seed0_predict_ms": [
+            0.0681,
+            0.0822917,
+            0.067475,
+            0.0688417,
+            0.0673458,
+            0.0695708,
+            0.0669834,
+            0.0671917,
+            0.0677792,
+            0.0673833,
+            0.0674584
+          ],
+          "median_fit_ms": 3.215584,
+          "median_predict_ms": 0.067475
+        },
+        "readme": {
+          "settings": {
+            "max_depth": 4,
+            "bins": 128,
+            "learning_rate": 0.05,
+            "round_cap": 200,
+            "patience": 15,
+            "threads": 1,
+            "model_seed": 0,
+            "L1": 0,
+            "L2": 1
+          },
+          "splits": [
+            {
+              "seed": 0,
+              "rounds": 200,
+              "rows": [
+                240,
+                80,
+                80
+              ],
+              "outputs": 2,
+              "test_rmse": 0.44337777509973375,
+              "test_quadratic_rmse": 0.4410816690110086,
+              "baseline_rmse": 1.5817677462732458,
+              "baseline_quadratic_rmse": 1.5754326345671583
+            },
+            {
+              "seed": 1,
+              "rounds": 200,
+              "rows": [
+                240,
+                80,
+                80
+              ],
+              "outputs": 2,
+              "test_rmse": 0.48544985880113367,
+              "test_quadratic_rmse": 0.4829169050280257,
+              "baseline_rmse": 1.6143349028920408,
+              "baseline_quadratic_rmse": 1.6095688194517197
+            },
+            {
+              "seed": 2,
+              "rounds": 200,
+              "rows": [
+                240,
+                80,
+                80
+              ],
+              "outputs": 2,
+              "test_rmse": 0.592490257102932,
+              "test_quadratic_rmse": 0.5899179213628566,
+              "baseline_rmse": 1.3969393958570997,
+              "baseline_quadratic_rmse": 1.3909646927767323
+            }
+          ],
+          "mean_test_rmse": 0.5071059636679331,
+          "mean_test_quadratic_rmse": 0.5046388318006303,
+          "mean_baseline_rmse": 1.531014015007462,
+          "mean_baseline_quadratic_rmse": 1.5253220489318702,
+          "seed0_fit_ms": [
+            11.800791,
+            11.774291,
+            11.703793,
+            11.751459,
+            11.738001,
+            11.774957,
+            11.735042,
+            11.752293,
+            11.740834000000001,
+            11.725792,
+            11.747876000000002
+          ],
+          "seed0_predict_ms": [
+            0.3095,
+            0.307475,
+            0.3098208,
+            0.3058083,
+            0.3068167,
+            0.3076208,
+            0.3081333,
+            0.3075125,
+            0.3065125,
+            0.3055208,
+            0.3032417
+          ],
+          "median_fit_ms": 11.747876000000002,
+          "median_predict_ms": 0.307475
+        },
+        "independent": {
+          "settings": {
+            "max_depth": 5,
+            "bins": 128,
+            "learning_rate": 0.2,
+            "round_cap": 20,
+            "patience": 15,
+            "threads": 1,
+            "model_seed": 0,
+            "L1": 0,
+            "L2": 1
+          },
+          "splits": [
+            {
+              "seed": 0,
+              "rounds": 1,
+              "rows": [
+                10000,
+                10000,
+                10000
+              ],
+              "outputs": 5,
+              "test_rmse": 0.2887926566784325,
+              "test_quadratic_rmse": 0.22374785200428463,
+              "baseline_rmse": 0.2887721810060095,
+              "baseline_quadratic_rmse": 0.22374613494638637
+            },
+            {
+              "seed": 1,
+              "rounds": 1,
+              "rows": [
+                10000,
+                10000,
+                10000
+              ],
+              "outputs": 5,
+              "test_rmse": 0.28818098913224793,
+              "test_quadratic_rmse": 0.22304438975951607,
+              "baseline_rmse": 0.28812606010903624,
+              "baseline_quadratic_rmse": 0.22299562176805585
+            },
+            {
+              "seed": 2,
+              "rounds": 1,
+              "rows": [
+                10000,
+                10000,
+                10000
+              ],
+              "outputs": 5,
+              "test_rmse": 0.28862804928322594,
+              "test_quadratic_rmse": 0.22328682649999146,
+              "baseline_rmse": 0.2885949812051874,
+              "baseline_quadratic_rmse": 0.22325119074674524
+            }
+          ],
+          "mean_test_rmse": 0.28853389836463544,
+          "mean_test_quadratic_rmse": 0.22335968942126405,
+          "mean_baseline_rmse": 0.28849774077341106,
+          "mean_baseline_quadratic_rmse": 0.22333098248706248,
+          "seed0_fit_ms": [
+            46.863792000000004,
+            46.639834,
+            48.185874999999996,
+            55.901042000000004,
+            50.541624999999996,
+            47.346125,
+            47.060542,
+            46.945,
+            46.782042000000004,
+            46.744417,
+            46.643833
+          ],
+          "seed0_predict_ms": [
+            0.344575,
+            0.3471042,
+            0.3450167,
+            0.3500333,
+            0.3518375,
+            0.3527417,
+            0.3498792,
+            0.35235,
+            0.3528042,
+            0.3500958,
+            0.3519375
+          ],
+          "median_fit_ms": 46.945,
+          "median_predict_ms": 0.3500958
+        },
+        "energy-rows": {
+          "settings": {
+            "max_depth": 4,
+            "bins": 128,
+            "learning_rate": 0.05,
+            "round_cap": 200,
+            "patience": 15,
+            "threads": 1,
+            "model_seed": 0,
+            "L1": 0,
+            "L2": 1
+          },
+          "splits": [
+            {
+              "seed": 0,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.2245907576008148,
+              "test_quadratic_rmse": 1.037262449441309,
+              "baseline_rmse": 9.811813559305287,
+              "baseline_quadratic_rmse": 9.775930863877742
+            },
+            {
+              "seed": 1,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.075023049329434,
+              "test_quadratic_rmse": 0.9353566985421544,
+              "baseline_rmse": 9.523411326105583,
+              "baseline_quadratic_rmse": 9.490598097807876
+            },
+            {
+              "seed": 2,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.100945737119794,
+              "test_quadratic_rmse": 0.9324078321780599,
+              "baseline_rmse": 9.885015512869217,
+              "baseline_quadratic_rmse": 9.854479641473503
+            },
+            {
+              "seed": 3,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.0655664791662214,
+              "test_quadratic_rmse": 0.9077991522509296,
+              "baseline_rmse": 9.001374029942001,
+              "baseline_quadratic_rmse": 8.968656912896575
+            },
+            {
+              "seed": 4,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.122428925776074,
+              "test_quadratic_rmse": 0.9501994212050708,
+              "baseline_rmse": 9.845283864723998,
+              "baseline_quadratic_rmse": 9.817408730536265
+            },
+            {
+              "seed": 5,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.0846262952291035,
+              "test_quadratic_rmse": 0.9294964068135785,
+              "baseline_rmse": 10.106558359981209,
+              "baseline_quadratic_rmse": 10.073796543377137
+            },
+            {
+              "seed": 6,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 0.9966221130860177,
+              "test_quadratic_rmse": 0.8708181117513787,
+              "baseline_rmse": 9.94662454395489,
+              "baseline_quadratic_rmse": 9.923059377924927
+            },
+            {
+              "seed": 7,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.152108781990042,
+              "test_quadratic_rmse": 0.9971952362699137,
+              "baseline_rmse": 9.975200207697446,
+              "baseline_quadratic_rmse": 9.948131259232253
+            },
+            {
+              "seed": 8,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.0087351290274083,
+              "test_quadratic_rmse": 0.8537456253541469,
+              "baseline_rmse": 9.905275727307503,
+              "baseline_quadratic_rmse": 9.873758375918595
+            },
+            {
+              "seed": 9,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.2172890121718831,
+              "test_quadratic_rmse": 1.0216421939751528,
+              "baseline_rmse": 10.107231814172259,
+              "baseline_quadratic_rmse": 10.076727482617486
+            }
+          ],
+          "mean_test_rmse": 1.1047936280496793,
+          "mean_test_quadratic_rmse": 0.9435923127781695,
+          "mean_baseline_rmse": 9.810778894605939,
+          "mean_baseline_quadratic_rmse": 9.780254728566236,
+          "seed0_fit_ms": [
+            10.644083,
+            10.429625,
+            10.441376,
+            10.490459,
+            10.409541,
+            10.442084000000001,
+            10.460125,
+            10.398583,
+            10.400876,
+            10.445959,
+            10.408125
+          ],
+          "seed0_predict_ms": [
+            0.7056417,
+            0.7070959,
+            0.7091292,
+            0.7044875,
+            0.7066333,
+            0.7082666,
+            0.7053042,
+            0.7085291,
+            0.7096375,
+            0.7037708,
+            0.706325
+          ],
+          "median_fit_ms": 10.441376,
+          "median_predict_ms": 0.7066333
+        },
+        "energy-geometries": {
+          "settings": {
+            "max_depth": 4,
+            "bins": 128,
+            "learning_rate": 0.05,
+            "round_cap": 200,
+            "patience": 15,
+            "threads": 1,
+            "model_seed": 0,
+            "L1": 0,
+            "L2": 1
+          },
+          "splits": [
+            {
+              "seed": 0,
+              "rounds": 1,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 7.276660523072458,
+              "test_quadratic_rmse": 7.23258470131147,
+              "baseline_rmse": 7.708986171311012,
+              "baseline_quadratic_rmse": 7.666907313433562
+            },
+            {
+              "seed": 1,
+              "rounds": 200,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 13.246486322870686,
+              "test_quadratic_rmse": 13.229295695961579,
+              "baseline_rmse": 11.626978010383503,
+              "baseline_quadratic_rmse": 11.60287650160232
+            },
+            {
+              "seed": 2,
+              "rounds": 1,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 7.3643236778973655,
+              "test_quadratic_rmse": 7.337855375814616,
+              "baseline_rmse": 7.824489195364175,
+              "baseline_quadratic_rmse": 7.799233936922537
+            },
+            {
+              "seed": 3,
+              "rounds": 32,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 5.767308919539901,
+              "test_quadratic_rmse": 5.747713051812298,
+              "baseline_rmse": 8.370980700032177,
+              "baseline_quadratic_rmse": 8.354128982462104
+            },
+            {
+              "seed": 4,
+              "rounds": 61,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 14.820499739034185,
+              "test_quadratic_rmse": 14.8162004924614,
+              "baseline_rmse": 10.048533712836653,
+              "baseline_quadratic_rmse": 10.04077471363911
+            },
+            {
+              "seed": 5,
+              "rounds": 200,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 13.302374867593619,
+              "test_quadratic_rmse": 13.282100056289469,
+              "baseline_rmse": 8.914933329638885,
+              "baseline_quadratic_rmse": 8.883172114340075
+            },
+            {
+              "seed": 6,
+              "rounds": 73,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 11.995020567116711,
+              "test_quadratic_rmse": 11.954940554222889,
+              "baseline_rmse": 11.621441021368321,
+              "baseline_quadratic_rmse": 11.576989996599437
+            },
+            {
+              "seed": 7,
+              "rounds": 173,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 9.005376784520989,
+              "test_quadratic_rmse": 8.986113532126975,
+              "baseline_rmse": 8.26801648841481,
+              "baseline_quadratic_rmse": 8.236300912589856
+            },
+            {
+              "seed": 8,
+              "rounds": 1,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 9.997483380341277,
+              "test_quadratic_rmse": 9.971526155822456,
+              "baseline_rmse": 10.388435483973554,
+              "baseline_quadratic_rmse": 10.362894413757191
+            },
+            {
+              "seed": 9,
+              "rounds": 5,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 7.874843187112527,
+              "test_quadratic_rmse": 7.859405636781918,
+              "baseline_rmse": 10.440870587049902,
+              "baseline_quadratic_rmse": 10.428489407528758
+            }
+          ],
+          "mean_test_rmse": 10.065037796909971,
+          "mean_test_quadratic_rmse": 10.041773525260506,
+          "mean_baseline_rmse": 9.5213664700373,
+          "mean_baseline_quadratic_rmse": 9.495176829287495,
+          "seed0_fit_ms": [
+            1.207791,
+            1.151999,
+            1.1809159999999999,
+            1.1375419999999998,
+            1.167791,
+            1.1361659999999998,
+            1.177917,
+            1.161916,
+            1.163333,
+            1.1856669999999998,
+            1.161334
+          ],
+          "seed0_predict_ms": [
+            0.0085584,
+            0.0082917,
+            0.0082333,
+            0.0082375,
+            0.0081708,
+            0.0081916,
+            0.0081917,
+            0.0081917,
+            0.008225,
+            0.0081833,
+            0.0087584
+          ],
+          "median_fit_ms": 1.163333,
+          "median_predict_ms": 0.008225
+        },
+        "scm20d": {
+          "settings": {
+            "max_depth": 4,
+            "bins": 128,
+            "learning_rate": 0.05,
+            "round_cap": 200,
+            "patience": 15,
+            "threads": 1,
+            "model_seed": 0,
+            "L1": 0,
+            "L2": 1
+          },
+          "splits": [
+            {
+              "seed": 0,
+              "rounds": 65,
+              "rows": [
+                5971,
+                1492,
+                1503
+              ],
+              "outputs": 16,
+              "test_rmse": 197.1078705673654,
+              "test_quadratic_rmse": 160.81770429659986,
+              "baseline_rmse": 249.27554153387993,
+              "baseline_quadratic_rmse": 213.80379699516266
+            }
+          ],
+          "mean_test_rmse": 197.1078705673654,
+          "mean_test_quadratic_rmse": 160.81770429659986,
+          "mean_baseline_rmse": 249.27554153387993,
+          "mean_baseline_quadratic_rmse": 213.80379699516266,
+          "seed0_fit_ms": [
+            1379.661083,
+            1378.055209,
+            1380.278292,
+            1419.643458,
+            1378.99575,
+            1392.551126,
+            1396.615,
+            1376.2242079999999,
+            1385.822541,
+            1387.7743750000002,
+            1386.2767079999999
+          ],
+          "seed0_predict_ms": [
+            1.8979666,
+            1.8961291,
+            1.889475,
+            1.8928375,
+            1.887375,
+            1.8973541,
+            1.8908542,
+            1.8937083,
+            1.8910458,
+            1.8933583,
+            1.894575
+          ],
+          "median_fit_ms": 1385.822541,
+          "median_predict_ms": 1.8933583
+        }
+      }
+    },
+    "XGBoost quadratic": {
+      "version": "3.4.1",
+      "native_library": "libxgboost.dylib",
+      "cases": {
+        "stock-rows": {
+          "settings": {
+            "max_depth": 4,
+            "bins": 128,
+            "learning_rate": 0.05,
+            "round_cap": 200,
+            "patience": 15,
+            "threads": 1,
+            "model_seed": 0,
+            "L1": 0,
+            "L2": 1
+          },
+          "splits": [
+            {
+              "seed": 0,
+              "rounds": 200,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.12048865016599816,
+              "test_quadratic_rmse": 0.09952024554368753,
+              "baseline_rmse": 0.14087023287610484,
+              "baseline_quadratic_rmse": 0.115249377532913
+            },
+            {
+              "seed": 1,
+              "rounds": 42,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.1282179946868177,
+              "test_quadratic_rmse": 0.10587860459266249,
+              "baseline_rmse": 0.14215515466134157,
+              "baseline_quadratic_rmse": 0.11459222079084733
+            },
+            {
+              "seed": 2,
+              "rounds": 200,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.12560834521168213,
+              "test_quadratic_rmse": 0.10693117995638698,
+              "baseline_rmse": 0.14902951250147695,
+              "baseline_quadratic_rmse": 0.12396780199916707
+            },
+            {
+              "seed": 3,
+              "rounds": 60,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.1184817747311096,
+              "test_quadratic_rmse": 0.09874053724852269,
+              "baseline_rmse": 0.13113065182000028,
+              "baseline_quadratic_rmse": 0.10691848669365302
+            },
+            {
+              "seed": 4,
+              "rounds": 62,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.11882184010052173,
+              "test_quadratic_rmse": 0.10034188919011701,
+              "baseline_rmse": 0.13697399031817514,
+              "baseline_quadratic_rmse": 0.1125502855645753
+            },
+            {
+              "seed": 5,
+              "rounds": 51,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.12861350691664733,
+              "test_quadratic_rmse": 0.10652753734706306,
+              "baseline_rmse": 0.14380107827937816,
+              "baseline_quadratic_rmse": 0.11918621863441106
+            },
+            {
+              "seed": 6,
+              "rounds": 62,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.1116411868872135,
+              "test_quadratic_rmse": 0.09348839341277321,
+              "baseline_rmse": 0.13066806203974177,
+              "baseline_quadratic_rmse": 0.10784184234479219
+            },
+            {
+              "seed": 7,
+              "rounds": 80,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.11423776383997394,
+              "test_quadratic_rmse": 0.09772555425773866,
+              "baseline_rmse": 0.1281484262787947,
+              "baseline_quadratic_rmse": 0.10581043322930345
+            },
+            {
+              "seed": 8,
+              "rounds": 81,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.11903839642558973,
+              "test_quadratic_rmse": 0.09610402057460667,
+              "baseline_rmse": 0.13793878888146285,
+              "baseline_quadratic_rmse": 0.11298287987670336
+            },
+            {
+              "seed": 9,
+              "rounds": 77,
+              "rows": [
+                189,
+                63,
+                63
+              ],
+              "outputs": 6,
+              "test_rmse": 0.11372558177164385,
+              "test_quadratic_rmse": 0.09668835624379955,
+              "baseline_rmse": 0.1341936810851634,
+              "baseline_quadratic_rmse": 0.11134601166216669
+            }
+          ],
+          "mean_test_rmse": 0.11988750407371977,
+          "mean_test_quadratic_rmse": 0.10019463183673578,
+          "mean_baseline_rmse": 0.13749095787416396,
+          "mean_baseline_quadratic_rmse": 0.11304455583285325,
+          "seed0_fit_ms": [
+            16.349249999999998,
+            16.106334,
+            16.138042,
+            16.112751,
+            16.072042,
+            16.027417,
+            16.167956999999998,
+            16.220209,
+            16.177374999999998,
+            16.216209,
+            16.178209000000003
+          ],
+          "seed0_predict_ms": [
+            0.1251084,
+            0.1178708,
+            0.1181167,
+            0.1182625,
+            0.1178292,
+            0.1159792,
+            0.118875,
+            0.1316167,
+            0.1161916,
+            0.1147625,
+            0.11545
+          ],
+          "median_fit_ms": 16.167956999999998,
+          "median_predict_ms": 0.1178708
+        },
+        "stock-portfolios": {
+          "settings": {
+            "max_depth": 4,
+            "bins": 128,
+            "learning_rate": 0.05,
+            "round_cap": 200,
+            "patience": 15,
+            "threads": 1,
+            "model_seed": 0,
+            "L1": 0,
+            "L2": 1
+          },
+          "splits": [
+            {
+              "seed": 0,
+              "rounds": 77,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.13094950791691767,
+              "test_quadratic_rmse": 0.10603302848178035,
+              "baseline_rmse": 0.14373458985897206,
+              "baseline_quadratic_rmse": 0.11935183433427252
+            },
+            {
+              "seed": 1,
+              "rounds": 67,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.12224798013418373,
+              "test_quadratic_rmse": 0.10194383524645667,
+              "baseline_rmse": 0.1461366090582773,
+              "baseline_quadratic_rmse": 0.12072135812129392
+            },
+            {
+              "seed": 2,
+              "rounds": 52,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.11642188752604062,
+              "test_quadratic_rmse": 0.0978485970066369,
+              "baseline_rmse": 0.1341872870151223,
+              "baseline_quadratic_rmse": 0.11222162134568088
+            },
+            {
+              "seed": 3,
+              "rounds": 74,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.12575337638982811,
+              "test_quadratic_rmse": 0.10750499798476024,
+              "baseline_rmse": 0.14834094658036104,
+              "baseline_quadratic_rmse": 0.124048051842932
+            },
+            {
+              "seed": 4,
+              "rounds": 154,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.1310731841514513,
+              "test_quadratic_rmse": 0.10738760415317215,
+              "baseline_rmse": 0.14793064461594718,
+              "baseline_quadratic_rmse": 0.12053382250975747
+            },
+            {
+              "seed": 5,
+              "rounds": 160,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.1481647977926998,
+              "test_quadratic_rmse": 0.12027891349676677,
+              "baseline_rmse": 0.16914926465743194,
+              "baseline_quadratic_rmse": 0.14043895272082751
+            },
+            {
+              "seed": 6,
+              "rounds": 73,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.13172606718465377,
+              "test_quadratic_rmse": 0.10767715095452063,
+              "baseline_rmse": 0.13795673961502158,
+              "baseline_quadratic_rmse": 0.11282104186068388
+            },
+            {
+              "seed": 7,
+              "rounds": 75,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.12362730482602902,
+              "test_quadratic_rmse": 0.10428945246005644,
+              "baseline_rmse": 0.14923613253534312,
+              "baseline_quadratic_rmse": 0.12470064840683559
+            },
+            {
+              "seed": 8,
+              "rounds": 163,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.11769056535244507,
+              "test_quadratic_rmse": 0.09855142518560417,
+              "baseline_rmse": 0.14028868281794116,
+              "baseline_quadratic_rmse": 0.11793653149338154
+            },
+            {
+              "seed": 9,
+              "rounds": 76,
+              "rows": [
+                185,
+                65,
+                65
+              ],
+              "outputs": 6,
+              "test_rmse": 0.13168996823061915,
+              "test_quadratic_rmse": 0.11039461233419999,
+              "baseline_rmse": 0.14999051342080547,
+              "baseline_quadratic_rmse": 0.1268550748170382
+            }
+          ],
+          "mean_test_rmse": 0.12793446395048683,
+          "mean_test_quadratic_rmse": 0.10619096173039543,
+          "mean_baseline_rmse": 0.14669514101752232,
+          "mean_baseline_quadratic_rmse": 0.12196289374527035,
+          "seed0_fit_ms": [
+            9.7705,
+            9.615749,
+            9.654042,
+            9.855457999999999,
+            10.157583,
+            9.660125,
+            9.586042,
+            9.579749999999999,
+            9.567834,
+            9.575792000000002,
+            9.562084
+          ],
+          "seed0_predict_ms": [
+            0.0809459,
+            0.078075,
+            0.1065708,
+            0.0785875,
+            0.0790458,
+            0.0767208,
+            0.0767666,
+            0.0773667,
+            0.0766417,
+            0.0787875,
+            0.0783709
+          ],
+          "median_fit_ms": 9.615749,
+          "median_predict_ms": 0.0783709
+        },
+        "readme": {
+          "settings": {
+            "max_depth": 4,
+            "bins": 128,
+            "learning_rate": 0.05,
+            "round_cap": 200,
+            "patience": 15,
+            "threads": 1,
+            "model_seed": 0,
+            "L1": 0,
+            "L2": 1
+          },
+          "splits": [
+            {
+              "seed": 0,
+              "rounds": 200,
+              "rows": [
+                240,
+                80,
+                80
+              ],
+              "outputs": 2,
+              "test_rmse": 0.4556993806282021,
+              "test_quadratic_rmse": 0.45347828908085924,
+              "baseline_rmse": 1.5817677462732458,
+              "baseline_quadratic_rmse": 1.5754326345671583
+            },
+            {
+              "seed": 1,
+              "rounds": 200,
+              "rows": [
+                240,
+                80,
+                80
+              ],
+              "outputs": 2,
+              "test_rmse": 0.4977421862201309,
+              "test_quadratic_rmse": 0.49530751268819456,
+              "baseline_rmse": 1.6143349028920408,
+              "baseline_quadratic_rmse": 1.6095688194517197
+            },
+            {
+              "seed": 2,
+              "rounds": 200,
+              "rows": [
+                240,
+                80,
+                80
+              ],
+              "outputs": 2,
+              "test_rmse": 0.5844392693884698,
+              "test_quadratic_rmse": 0.5820511626668258,
+              "baseline_rmse": 1.3969393958570997,
+              "baseline_quadratic_rmse": 1.3909646927767323
+            }
+          ],
+          "mean_test_rmse": 0.5126269454122676,
+          "mean_test_quadratic_rmse": 0.5102789881452932,
+          "mean_baseline_rmse": 1.531014015007462,
+          "mean_baseline_quadratic_rmse": 1.5253220489318702,
+          "seed0_fit_ms": [
+            32.49475,
+            32.252958,
+            33.298916999999996,
+            32.330125,
+            32.206126000000005,
+            32.267208000000004,
+            32.202583,
+            32.152750999999995,
+            32.194167,
+            32.212167,
+            32.160042
+          ],
+          "seed0_predict_ms": [
+            0.1577375,
+            0.1526,
+            0.1502666,
+            0.1505375,
+            0.1559125,
+            0.1513041,
+            0.1547,
+            0.1520292,
+            0.1506416,
+            0.1506417,
+            0.1742334
+          ],
+          "median_fit_ms": 32.212167,
+          "median_predict_ms": 0.1520292
+        },
+        "independent": {
+          "settings": {
+            "max_depth": 5,
+            "bins": 128,
+            "learning_rate": 0.2,
+            "round_cap": 20,
+            "patience": 15,
+            "threads": 1,
+            "model_seed": 0,
+            "L1": 0,
+            "L2": 1
+          },
+          "splits": [
+            {
+              "seed": 0,
+              "rounds": 1,
+              "rows": [
+                10000,
+                10000,
+                10000
+              ],
+              "outputs": 5,
+              "test_rmse": 0.288810539950396,
+              "test_quadratic_rmse": 0.22377242756835308,
+              "baseline_rmse": 0.2887721810060095,
+              "baseline_quadratic_rmse": 0.22374613494638637
+            },
+            {
+              "seed": 1,
+              "rounds": 1,
+              "rows": [
+                10000,
+                10000,
+                10000
+              ],
+              "outputs": 5,
+              "test_rmse": 0.2881521764736353,
+              "test_quadratic_rmse": 0.22301736360976668,
+              "baseline_rmse": 0.28812606010903624,
+              "baseline_quadratic_rmse": 0.22299562176805585
+            },
+            {
+              "seed": 2,
+              "rounds": 1,
+              "rows": [
+                10000,
+                10000,
+                10000
+              ],
+              "outputs": 5,
+              "test_rmse": 0.28862874311758857,
+              "test_quadratic_rmse": 0.2232822446462949,
+              "baseline_rmse": 0.2885949812051874,
+              "baseline_quadratic_rmse": 0.22325119074674524
+            }
+          ],
+          "mean_test_rmse": 0.2885304865138733,
+          "mean_test_quadratic_rmse": 0.22335734527480489,
+          "mean_baseline_rmse": 0.28849774077341106,
+          "mean_baseline_quadratic_rmse": 0.22333098248706248,
+          "seed0_fit_ms": [
+            42.272376,
+            41.844333,
+            41.713457999999996,
+            43.436792000000004,
+            42.840875,
+            42.043042,
+            41.912709,
+            41.811417,
+            41.788540999999995,
+            42.393874000000004,
+            42.054833
+          ],
+          "seed0_predict_ms": [
+            0.51835,
+            0.5096084,
+            0.5145,
+            0.5101458,
+            0.5121375,
+            0.508775,
+            0.5091666,
+            0.50815,
+            0.511375,
+            0.5403,
+            0.518225
+          ],
+          "median_fit_ms": 42.043042,
+          "median_predict_ms": 0.511375
+        },
+        "energy-rows": {
+          "settings": {
+            "max_depth": 4,
+            "bins": 128,
+            "learning_rate": 0.05,
+            "round_cap": 200,
+            "patience": 15,
+            "threads": 1,
+            "model_seed": 0,
+            "L1": 0,
+            "L2": 1
+          },
+          "splits": [
+            {
+              "seed": 0,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.22459147086047,
+              "test_quadratic_rmse": 1.037263120245654,
+              "baseline_rmse": 9.811813559305287,
+              "baseline_quadratic_rmse": 9.775930863877742
+            },
+            {
+              "seed": 1,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.0750216757492452,
+              "test_quadratic_rmse": 0.9353556614814967,
+              "baseline_rmse": 9.523411326105583,
+              "baseline_quadratic_rmse": 9.490598097807876
+            },
+            {
+              "seed": 2,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.1008919573363352,
+              "test_quadratic_rmse": 0.9322125171248389,
+              "baseline_rmse": 9.885015512869217,
+              "baseline_quadratic_rmse": 9.854479641473503
+            },
+            {
+              "seed": 3,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.0655662529103194,
+              "test_quadratic_rmse": 0.9077992524385119,
+              "baseline_rmse": 9.001374029942001,
+              "baseline_quadratic_rmse": 8.968656912896575
+            },
+            {
+              "seed": 4,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.1224292101189364,
+              "test_quadratic_rmse": 0.9501997172843583,
+              "baseline_rmse": 9.845283864723998,
+              "baseline_quadratic_rmse": 9.817408730536265
+            },
+            {
+              "seed": 5,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.0846257047186252,
+              "test_quadratic_rmse": 0.9294961002007308,
+              "baseline_rmse": 10.106558359981209,
+              "baseline_quadratic_rmse": 10.073796543377137
+            },
+            {
+              "seed": 6,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 0.9966223191271886,
+              "test_quadratic_rmse": 0.870818476220667,
+              "baseline_rmse": 9.94662454395489,
+              "baseline_quadratic_rmse": 9.923059377924927
+            },
+            {
+              "seed": 7,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.152109062486185,
+              "test_quadratic_rmse": 0.9971953230348779,
+              "baseline_rmse": 9.975200207697446,
+              "baseline_quadratic_rmse": 9.948131259232253
+            },
+            {
+              "seed": 8,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.0087355269303058,
+              "test_quadratic_rmse": 0.853745804121618,
+              "baseline_rmse": 9.905275727307503,
+              "baseline_quadratic_rmse": 9.873758375918595
+            },
+            {
+              "seed": 9,
+              "rounds": 200,
+              "rows": [
+                460,
+                154,
+                154
+              ],
+              "outputs": 2,
+              "test_rmse": 1.2172891167613435,
+              "test_quadratic_rmse": 1.0216425367021562,
+              "baseline_rmse": 10.107231814172259,
+              "baseline_quadratic_rmse": 10.076727482617486
+            }
+          ],
+          "mean_test_rmse": 1.1047882296998954,
+          "mean_test_quadratic_rmse": 0.9435728508854909,
+          "mean_baseline_rmse": 9.810778894605939,
+          "mean_baseline_quadratic_rmse": 9.780254728566236,
+          "seed0_fit_ms": [
+            20.658749,
+            20.295709000000002,
+            20.170958,
+            20.165751,
+            20.141833000000002,
+            20.221375000000002,
+            20.129875,
+            20.129042,
+            20.142791,
+            20.035499,
+            20.103333
+          ],
+          "seed0_predict_ms": [
+            0.2522875,
+            0.243875,
+            0.24635,
+            0.2432875,
+            0.2429959,
+            0.2459041,
+            0.2443958,
+            0.2467875,
+            0.24575,
+            0.2436,
+            0.2432
+          ],
+          "median_fit_ms": 20.142791,
+          "median_predict_ms": 0.2443958
+        },
+        "energy-geometries": {
+          "settings": {
+            "max_depth": 4,
+            "bins": 128,
+            "learning_rate": 0.05,
+            "round_cap": 200,
+            "patience": 15,
+            "threads": 1,
+            "model_seed": 0,
+            "L1": 0,
+            "L2": 1
+          },
+          "splits": [
+            {
+              "seed": 0,
+              "rounds": 1,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 7.276660252535339,
+              "test_quadratic_rmse": 7.23258444072847,
+              "baseline_rmse": 7.708986171311012,
+              "baseline_quadratic_rmse": 7.666907313433562
+            },
+            {
+              "seed": 1,
+              "rounds": 200,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 13.682026880742315,
+              "test_quadratic_rmse": 13.664990950344457,
+              "baseline_rmse": 11.626978010383503,
+              "baseline_quadratic_rmse": 11.60287650160232
+            },
+            {
+              "seed": 2,
+              "rounds": 1,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 7.364323940339314,
+              "test_quadratic_rmse": 7.337855614653459,
+              "baseline_rmse": 7.824489195364175,
+              "baseline_quadratic_rmse": 7.799233936922537
+            },
+            {
+              "seed": 3,
+              "rounds": 1,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 7.903574915538477,
+              "test_quadratic_rmse": 7.886123938141264,
+              "baseline_rmse": 8.370980700032177,
+              "baseline_quadratic_rmse": 8.354128982462104
+            },
+            {
+              "seed": 4,
+              "rounds": 1,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 9.601209547194907,
+              "test_quadratic_rmse": 9.593383073399817,
+              "baseline_rmse": 10.048533712836653,
+              "baseline_quadratic_rmse": 10.04077471363911
+            },
+            {
+              "seed": 5,
+              "rounds": 200,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 5.705882021728063,
+              "test_quadratic_rmse": 5.664659014568443,
+              "baseline_rmse": 8.914933329638885,
+              "baseline_quadratic_rmse": 8.883172114340075
+            },
+            {
+              "seed": 6,
+              "rounds": 73,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 5.122707375191675,
+              "test_quadratic_rmse": 5.039449240044952,
+              "baseline_rmse": 11.621441021368321,
+              "baseline_quadratic_rmse": 11.576989996599437
+            },
+            {
+              "seed": 7,
+              "rounds": 173,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 3.2582294950281856,
+              "test_quadratic_rmse": 3.210548409757588,
+              "baseline_rmse": 8.26801648841481,
+              "baseline_quadratic_rmse": 8.236300912589856
+            },
+            {
+              "seed": 8,
+              "rounds": 65,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 3.1783063263785447,
+              "test_quadratic_rmse": 3.1192020007923493,
+              "baseline_rmse": 10.388435483973554,
+              "baseline_quadratic_rmse": 10.362894413757191
+            },
+            {
+              "seed": 9,
+              "rounds": 5,
+              "rows": [
+                448,
+                128,
+                192
+              ],
+              "outputs": 2,
+              "test_rmse": 7.874842538157502,
+              "test_quadratic_rmse": 7.859404983974621,
+              "baseline_rmse": 10.440870587049902,
+              "baseline_quadratic_rmse": 10.428489407528758
+            }
+          ],
+          "mean_test_rmse": 7.096776329283432,
+          "mean_test_quadratic_rmse": 7.060820166640542,
+          "mean_baseline_rmse": 9.5213664700373,
+          "mean_baseline_quadratic_rmse": 9.495176829287495,
+          "seed0_fit_ms": [
+            2.721375,
+            2.393916,
+            2.4974990000000004,
+            2.313166,
+            2.4977080000000003,
+            2.383291,
+            2.4752919999999996,
+            2.6607499999999997,
+            3.111625,
+            4.357833,
+            5.782833
+          ],
+          "seed0_predict_ms": [
+            0.050725,
+            0.0466416,
+            0.0585708,
+            0.04535,
+            0.0449291,
+            0.0458542,
+            0.0942708,
+            0.1566708,
+            0.0695916,
+            0.1033417,
+            0.0499667
+          ],
+          "median_fit_ms": 2.4977080000000003,
+          "median_predict_ms": 0.050725
+        },
+        "scm20d": {
+          "settings": {
+            "max_depth": 4,
+            "bins": 128,
+            "learning_rate": 0.05,
+            "round_cap": 200,
+            "patience": 15,
+            "threads": 1,
+            "model_seed": 0,
+            "L1": 0,
+            "L2": 1
+          },
+          "splits": [
+            {
+              "seed": 0,
+              "rounds": 73,
+              "rows": [
+                5971,
+                1492,
+                1503
+              ],
+              "outputs": 16,
+              "test_rmse": 197.8650626025434,
+              "test_quadratic_rmse": 161.7276253294002,
+              "baseline_rmse": 249.27554153387993,
+              "baseline_quadratic_rmse": 213.80379699516266
+            }
+          ],
+          "mean_test_rmse": 197.8650626025434,
+          "mean_test_quadratic_rmse": 161.7276253294002,
+          "mean_baseline_rmse": 249.27554153387993,
+          "mean_baseline_quadratic_rmse": 213.80379699516266,
+          "seed0_fit_ms": [
+            1262.827042,
+            1261.096957,
+            1290.409042,
+            1269.0054169999999,
+            1275.653374,
+            1273.745375,
+            1271.643083,
+            1259.90725,
+            1258.142792,
+            1267.498375,
+            1263.824833
+          ],
+          "seed0_predict_ms": [
+            1.0236542,
+            0.9454208,
+            0.9451584,
+            0.9456791,
+            0.9416833,
+            0.94435,
+            0.9426042,
+            0.9450375,
+            0.9422333,
+            0.9419375,
+            0.9451
+          ],
+          "median_fit_ms": 1267.498375,
+          "median_predict_ms": 0.9450375
+        }
+      }
+    }
+  },
+  "quadratic_metric": "M = (I + ones(d, d) / d) / (2 * d)",
+  "energy_sha256": "db44dbe453acd464b5cf65be2fb01a28aa9c5b2630300e65fbe28cde35f5d96f",
+  "scm_archives_sha256": {
+    "scm20d-train.zip": "78fdf75a55a242b1ade1295ec04e962908790d6da020c9ba836f9961c264f336",
+    "scm20d-test.zip": "e81aebcddf504e7457c595ee38d36c0d2b35eb2cb4506c960499104a83517d6a"
+  }
+}

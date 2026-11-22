@@ -308,6 +308,8 @@ class MultiOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
         *,
         num_rounds=200,
         loss=b"mse",
+        output_metric=None,
+        projection_dim=None,
         objective=None,
         eval_metric=None,
         maximize=None,
@@ -336,6 +338,10 @@ class MultiOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
         Args:
             num_rounds: Number of boosting rounds.
             loss: Built-in native loss name for the standard training path.
+            output_metric: Optional nonnegative coefficient weights or a shared
+                positive-semidefinite matrix for dense multi-output squared loss.
+            projection_dim: Optional number of Gaussian directions for split
+                scoring. The default evaluates splits in the full output space.
             objective: Optional custom objective callback.
             eval_metric: Native classifier metric name or a custom scalar evaluation metric.
             maximize: Whether larger evaluation metric values are better.
@@ -362,6 +368,8 @@ class MultiOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
         """
         self.num_rounds = num_rounds
         self.loss = loss
+        self.output_metric = output_metric
+        self.projection_dim = projection_dim
         self.objective = objective
         self.eval_metric = eval_metric
         self.maximize = maximize
@@ -385,6 +393,14 @@ class MultiOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
         self.hist_cache = hist_cache
         self.lib = lib
 
+    def __setstate__(self, state):
+        """Restore estimator parameters saved before the split-scoring options existed.
+
+        Args:
+            state: Estimator attribute mapping supplied by pickle.
+        """
+        super().__setstate__({"output_metric": None, "projection_dim": None, **state})
+
     def _native_params(self):
         """Build the native booster parameter dictionary.
 
@@ -393,6 +409,8 @@ class MultiOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
         """
         return {
             "loss": self.loss,
+            "output_metric": self.output_metric,
+            "projection_dim": self.projection_dim,
             "max_depth": self.max_depth,
             "max_leaves": self.max_leaves,
             "max_bins": self.max_bins,

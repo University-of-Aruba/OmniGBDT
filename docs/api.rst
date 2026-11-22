@@ -30,6 +30,10 @@ MultiOutputGBDT
 
    When ``params["base_score"]`` is left as ``None`` with ``loss=b"mse"``, the initial prediction is inferred from the training-label mean for each output column.
 
+   For dense regression with two or more targets, ``params["output_metric"]`` can supply weights or a matrix defining a quadratic loss. Both ``predict()`` and the saved model use the original target units. Supply the metric again when continuing training from a saved model. See :doc:`parameters` for the supported settings.
+
+   ``params["projection_dim"]`` sets the number of Gaussian directions used to choose splits. The default is ``None`` for full scoring. Projected models fit every output in each leaf and use the full training objective for validation. To reproduce the projection sequence when continuing from a saved model, configure the original width and seed before loading it.
+
    When ``params["deterministic"]`` is ``True``, repeated CPU runs on the same platform are intended to be repeatable for a fixed ``num_threads`` setting.
 
    .. method:: set_data(train_set=None, eval_set=None)
@@ -177,6 +181,10 @@ MultiOutputGBDTRegressor
    sklearn-compatible multi-output regressor wrapper around ``MultiOutputGBDT``.
 
    It exposes ``fit(...)``, ``predict(...)``, and ``score(...)`` for sklearn-style multi-output workflows.
+
+   The ``output_metric`` constructor parameter selects the same quadratic training loss as ``MultiOutputGBDT``. The sklearn ``score()`` method reports the usual coefficient of determination (:math:`R^2`).
+
+   The ``projection_dim`` constructor parameter selects the same split scoring as ``MultiOutputGBDT`` and is available to sklearn parameter searches.
 
    Its constructor also accepts ``objective=None``, ``eval_metric=None``, ``maximize=None``, and ``deterministic=True`` and forwards them to ``MultiOutputGBDT``.
 

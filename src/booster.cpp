@@ -18,7 +18,11 @@ bool is_valid_split(const SplitInfo &split) {
     return split.column >= 0;
 }
 
-bool gain_is_greater(double lhs, double rhs) {
+bool gain_is_greater(double lhs, double rhs, bool relative) {
+    if (relative) {
+        if (!std::isfinite(lhs) || !std::isfinite(rhs)) { return lhs > rhs; }
+        return lhs > rhs && lhs - rhs > kSplitTieEpsilon * max(std::abs(lhs), std::abs(rhs));
+    }
     return lhs > rhs + kSplitTieEpsilon;
 }
 
@@ -26,17 +30,17 @@ bool threshold_is_less(double lhs, double rhs) {
     return lhs + kSplitTieEpsilon < rhs;
 }
 
-bool is_better_split(const SplitInfo &candidate, const SplitInfo &best) {
+bool is_better_split(const SplitInfo &candidate, const SplitInfo &best, bool relative) {
     if (!is_valid_split(candidate)) {
         return false;
     }
     if (!is_valid_split(best)) {
         return true;
     }
-    if (gain_is_greater(candidate.gain, best.gain)) {
+    if (gain_is_greater(candidate.gain, best.gain, relative)) {
         return true;
     }
-    if (gain_is_greater(best.gain, candidate.gain)) {
+    if (gain_is_greater(best.gain, candidate.gain, relative)) {
         return false;
     }
     if (candidate.column != best.column) {
@@ -54,11 +58,11 @@ bool is_better_split(const SplitInfo &candidate, const SplitInfo &best) {
     return false;
 }
 
-SplitInfo select_best_split(const vector<SplitInfo> &candidates) {
+SplitInfo select_best_split(const vector<SplitInfo> &candidates, bool relative = false) {
     SplitInfo best;
     best.reset();
     for (const auto &candidate : candidates) {
-        if (is_better_split(candidate, best)) {
+        if (is_better_split(candidate, best, relative)) {
             best = candidate;
         }
     }
@@ -367,7 +371,7 @@ void BoosterUtils::queue_split(int leaf, int depth, vector<int32_t> &order, vect
         return;
     }
     boost_all(hist);
-    if (meta.column >= 0 && meta.gain > hp.gamma) {
+    if (meta.column >= 0 && meta.gain > minimum_split_score()) {
         // The full training order is reused by subsequent trees. Sampled root
         // rows and all child rows belong to this candidate.
         auto rows = &order == &Train.Orders ? vector<int32_t>(order) : std::move(order);
@@ -597,6 +601,8 @@ BoosterMulti::BoosterMulti(
     hp.inp_dim = inp_dim;
     hp.out_dim = out_dim;
     hp.topk = min(topk, out_dim);
+    metric_rank = out_dim;
+    lsq_gamma = gamma;
     hp.loss = name;
     hp.max_depth = max_depth;
     hp.max_leaves = max_leaves;
@@ -623,6 +629,127 @@ BoosterMulti::BoosterMulti(
 
     cache = TopkDeque<CacheInfo>(hp.Max_caches);
     obj = Objective(hp.loss);
+}
+
+bool BoosterMulti::supports_output_metric(int columns) const {
+    return columns >= 2 && columns == hp.out_dim && obj.f_grad == mse_grad &&
+           hp.topk == 0 && hp.reg_l1 == 0 && std::isfinite(hp.reg_l2) && hp.reg_l2 >= 0;
+}
+
+int BoosterMulti::set_projection_dim(int dim) {
+    if (dim < 0 || dim > hp.out_dim || (dim > 0 && !supports_output_metric(hp.out_dim))) {
+        return -1;
+    }
+    projection_dim = dim;
+    return 0;
+}
+
+int BoosterMulti::set_diagonal_output_weights(const double *weights, int columns) {
+    if (!weights || !supports_output_metric(columns)) { return -1; }
+    bool uniform = true;
+    for (int j = 0; j < columns; ++j) {
+        if (!std::isfinite(weights[j]) || weights[j] < 0) { return -1; }
+        uniform = uniform && weights[j] == weights[0];
+    }
+    if (!uniform) {
+        vector<double> factor(columns);
+        for (int j = 0; j < columns; ++j) { factor[j] = sqrt(weights[j]); }
+        metric_factor.swap(factor);
+        metric_rows = 0;
+        metric_rank = static_cast<int>(std::count_if(weights, weights + columns, [](double w) { return w > 0; }));
+        rmse_scale = 1.0;
+        return 0;
+    }
+    if (weights[0] == 0) { return -1; }
+    use_uniform_weight(weights[0]);
+    return 0;
+}
+
+void BoosterMulti::use_uniform_weight(double weight) {
+    // For w*I the weighted gain is d*w times the ordinary gain. Keep the
+    // entire LSQ tree builder (including tie-breaking) in its original units.
+    const int columns = hp.out_dim;
+    const double scale = weight == 1.0 / columns ? 1.0 : weight * columns;
+    if (std::isfinite(scale)) {
+        lsq_gamma = hp.gamma / scale;
+        rmse_scale = sqrt(scale);
+    } else {
+        lsq_gamma = (hp.gamma / weight) / columns;
+        rmse_scale = sqrt(weight) * sqrt(static_cast<double>(columns));
+    }
+    metric_factor.clear();
+    metric_rank = columns;
+}
+
+int BoosterMulti::set_output_metric(const double *factor, int rows, int columns) {
+    if (!factor || !supports_output_metric(columns) || rows < 0 || rows > columns) { return -1; }
+    const size_t width = static_cast<size_t>(columns);
+    const size_t height = static_cast<size_t>(max(rows, 1));
+    if (height > metric_factor.max_size() / width) { return -1; }
+    const size_t size = height * width;
+    bool nonzero = false;
+    for (size_t i = 0; i < size; ++i) {
+        if (!std::isfinite(factor[i]) || (rows == 0 && factor[i] < 0)) { return -1; }
+        nonzero = nonzero || factor[i] != 0;
+    }
+    if (!nonzero) { return -1; }
+    // Older callers supply square-root diagonal weights to this entry point.
+    if (rows == 0 && std::all_of(factor + 1, factor + size, [&](double v) { return v == factor[0]; })) {
+        const double canonical = 1.0 / columns;
+        const double weight = factor[0] == sqrt(canonical) ? canonical : factor[0] * factor[0];
+        if (weight > 0 && std::isfinite(weight)) {
+            use_uniform_weight(weight);
+            return 0;
+        }
+    }
+    metric_factor.assign(factor, factor + size);
+    metric_rows = rows;
+    metric_rank = rows ? rows : static_cast<int>(std::count_if(factor, factor + columns, [](double w) { return w > 0; }));
+    rmse_scale = 1.0;
+    return 0;
+}
+
+void BoosterMulti::project_residual(const double *residual, double *projected) const {
+    if (metric_rows == 0) {
+        for (int j = 0; j < hp.out_dim; ++j) { projected[j] = metric_factor[j] * residual[j]; }
+        return;
+    }
+    for (int i = 0; i < metric_rows; ++i) {
+        const double *row = metric_factor.data() + static_cast<size_t>(i) * hp.out_dim;
+        double value = 0;
+        for (int j = 0; j < hp.out_dim; ++j) { value += row[j] * residual[j]; }
+        projected[i] = value;
+    }
+}
+
+double BoosterMulti::quadratic_rmse(const Dataset &data) const {
+    const int block_size = 256;
+    const int blocks = 1 + (data.num - 1) / block_size;
+    const double divisor = sqrt(static_cast<double>(data.num));
+    const int width = projected_width();
+    vector<double> norms(blocks);
+    // Fixed blocks give a deterministic reduction. hypot avoids squaring large errors.
+#pragma omp parallel for schedule(static) if (blocks > 1)
+    for (int block = 0; block < blocks; ++block) {
+        vector<double> residual(hp.out_dim), projected(width);
+        const int start = block * block_size;
+        const int stop = start + min(block_size, data.num - start);
+        double norm = 0;
+        for (int i = start; i < stop; ++i) {
+            const size_t offset = static_cast<size_t>(i) * hp.out_dim;
+            for (int j = 0; j < hp.out_dim; ++j) {
+                const double pred = data.Preds[offset + j], label = data.Label_double[offset + j];
+                const double error = pred - label;
+                residual[j] = std::isfinite(error) ? error / divisor : pred / divisor - label / divisor;
+            }
+            project_residual(residual.data(), projected.data());
+            for (double value : projected) { norm = std::hypot(norm, value); }
+        }
+        norms[block] = norm;
+    }
+    double norm = 0;
+    for (double part : norms) { norm = std::hypot(norm, part); }
+    return norm;
 }
 
 void BoosterMulti::get_score_opt(Histogram &Hist, vector<double> &opt, vector<double> &score, double &score_sum) {
@@ -663,9 +790,44 @@ void BoosterMulti::hist_all(vector<int32_t> &order, vector<Histogram> &Hist) {
     }
 }
 
+vector<Histogram> BoosterMulti::build_histograms(vector<int32_t> &order, int columns) {
+    if (!uses_projection()) { return BoosterUtils::build_histograms(order, columns); }
+
+    // Every feature needs k split channels. Only feature zero needs raw residual
+    // sums to fit the leaves, including leaves obtained by sibling subtraction.
+    vector<Histogram> hist;
+    hist.reserve(columns);
+    for (int col = 0; col < columns; ++col) {
+        hist.emplace_back(bin_nums[col], col == 0 ? hp.out_dim : 0, projection_dim);
+    }
+#pragma omp parallel for schedule(static)
+    for (int col = 0; col < columns; ++col) {
+        auto &bins = hist[col];
+        const uint16_t *maps = Train.Maps + static_cast<size_t>(col) * Train.num;
+        const int raw_width = col == 0 ? hp.out_dim : 0;
+        for (int row : order) {
+            const size_t bin = maps[row];
+            ++bins.cnt[bin];
+            for (int j = 0; j < projection_dim; ++j) {
+                bins.h[bin * projection_dim + j] += H[static_cast<size_t>(row) * projection_dim + j];
+            }
+            for (int j = 0; j < raw_width; ++j) {
+                bins.g[bin * raw_width + j] += G[static_cast<size_t>(row) * raw_width + j];
+            }
+        }
+        for (size_t bin = 1; bin < bins.cnt.size(); ++bin) { bins.cnt[bin] += bins.cnt[bin - 1]; }
+        for (size_t i = projection_dim; i < bins.h.size(); ++i) { bins.h[i] += bins.h[i - projection_dim]; }
+        for (size_t i = raw_width; i < bins.g.size(); ++i) { bins.g[i] += bins.g[i - raw_width]; }
+    }
+    return hist;
+}
+
 SplitInfo BoosterMulti::boost_column_full(Histogram &Hist, int column) {
-    double *gr = &Hist.g[Hist.g.size() - hp.out_dim];
-    double *hr = &Hist.h[Hist.h.size() - hp.out_dim];
+    const bool projected = uses_projection();
+    const int width = projected ? projection_dim : hp.out_dim;
+    const auto &grad = projected ? Hist.h : Hist.g;
+    const double *gr = grad.data() + grad.size() - width;
+    const double *hr = Hist.h.data() + Hist.h.size() - width;
     double gain = 0.0f, tmp;
     int ind_l = 0, ind_l_tmp = 0, row_bins = -1;
     int max_bins = Hist.cnt.size() - 1;
@@ -675,16 +837,18 @@ SplitInfo BoosterMulti::boost_column_full(Histogram &Hist, int column) {
         int rows_l = Hist.cnt[i];
         int rows_r = total_rows - rows_l;
         if (rows_l < hp.min_samples || rows_r < hp.min_samples) {
-            ind_l += hp.out_dim;
+            ind_l += width;
             continue;
         }
         tmp = 0.0f;
-        for (int j = 0; j < hp.out_dim; ++j) {
+        for (int j = 0; j < width; ++j) {
             ind_l_tmp = ind_l + j;
-            tmp += CalScore(Hist.g[ind_l_tmp], Hist.h[ind_l_tmp], hp.reg_l1, hp.reg_l2) + \
-                   CalScore(gr[j] - Hist.g[ind_l_tmp], hr[j] - Hist.h[ind_l_tmp], hp.reg_l1, hp.reg_l2);
+            const double left_h = projected ? rows_l : Hist.h[ind_l_tmp];
+            const double right_h = projected ? rows_r : hr[j] - left_h;
+            tmp += CalScore(grad[ind_l_tmp], left_h, hp.reg_l1, hp.reg_l2) +
+                   CalScore(gr[j] - grad[ind_l_tmp], right_h, hp.reg_l1, hp.reg_l2);
         }
-        ind_l += hp.out_dim;
+        ind_l += width;
         if (tmp > gain) {
             gain = tmp;
             row_bins = i;
@@ -696,6 +860,66 @@ SplitInfo BoosterMulti::boost_column_full(Histogram &Hist, int column) {
     candidate.reset();
     if (row_bins > -1) {
         candidate.update(gain, column, row_bins, bin_values[column][row_bins]);
+    }
+    return candidate;
+}
+
+double BoosterMulti::minimum_split_score() const {
+    if (metric_factor.empty()) { return lsq_gamma; }
+    // Compare thresholds in the same signed square-root units as quadratic gains.
+    return std::copysign(sqrt(std::abs(hp.gamma)), hp.gamma);
+}
+
+SplitInfo BoosterMulti::boost_column_quadratic(const Histogram &hist, int column) const {
+    const int bins = static_cast<int>(hist.cnt.size()) - 1;
+    const int n = hist.cnt.back();
+    const bool projected = uses_projection();
+    const int width = projected ? projection_dim : projected_width();
+    const int stride = projected ? projection_dim : hp.out_dim;
+    const double *total = hist.h.data() + static_cast<size_t>(bins) * stride;
+    const double parent_weight = n + hp.reg_l2;
+    const double half_child_weight = 0.5 * n + hp.reg_l2;
+
+    // For a node the half-score is ||sum(R e)||² / (2 (n + lambda)).
+    // Children minus parent simplifies to a weighted squared distance between
+    // child means, less the cost of a second ridge penalty on their common mean.
+    const double penalty_scale = sqrt((0.25 * parent_weight / half_child_weight) * hp.reg_l2);
+    double penalty = 0;
+    for (int j = 0; j < width; ++j) {
+        penalty = std::hypot(penalty, penalty_scale * (total[j] / parent_weight));
+    }
+
+    SplitInfo candidate;
+    candidate.reset();
+    double best_distance = 0;
+    int best_bin = -1;
+    for (int i = 0; i < bins; ++i) {
+        const int left_rows = hist.cnt[i], right_rows = n - left_rows;
+        if (left_rows < hp.min_samples || right_rows < hp.min_samples ||
+            (i > 0 && left_rows == hist.cnt[i - 1])) { continue; }
+        const double left_weight = left_rows + hp.reg_l2, right_weight = right_rows + hp.reg_l2;
+        const double scale = sqrt((0.25 * left_weight / half_child_weight) * right_weight);
+        const double *left = hist.h.data() + static_cast<size_t>(i) * stride;
+        double distance = 0;
+        for (int j = 0; j < width; ++j) {
+            const double left_mean = left[j] / left_weight;
+            const double right_mean = (total[j] - left[j]) / right_weight;
+            distance = std::hypot(distance, scale * left_mean - scale * right_mean);
+        }
+        if (distance > best_distance) {
+            best_distance = distance;
+            best_bin = i;
+        }
+    }
+    if (best_bin >= 0) {
+        // The gain is distance² - penalty². Its signed square root preserves
+        // ordering across nodes even when the squared norms exceed double range.
+        const double high = max(best_distance, penalty), low = min(best_distance, penalty);
+        const double magnitude = high * sqrt(((high - low) / high) * (1.0 + low / high));
+        const double gain = std::copysign(magnitude, best_distance - penalty);
+        if (gain > minimum_split_score()) {
+            candidate.update(gain, column, best_bin, bin_values[column][best_bin]);
+        }
     }
     return candidate;
 }
@@ -803,7 +1027,8 @@ void BoosterMulti::boost_all(vector<Histogram> &Hist) {
     if (hp.topk == 0) {
 #pragma omp parallel for schedule(static)
         for (int i = 0; i < hp.inp_dim; i++) {
-            candidates[i] = boost_column_full(Hist[i], i);
+            candidates[i] = metric_factor.empty() ? boost_column_full(Hist[i], i)
+                                                  : boost_column_quadratic(Hist[i], i);
         }
     } else {
         if (hp.one_side) {
@@ -818,12 +1043,26 @@ void BoosterMulti::boost_all(vector<Histogram> &Hist) {
             }
         }
     }
-    meta = select_best_split(candidates);
+    meta = select_best_split(candidates, !metric_factor.empty());
 }
 
 LeafNode BoosterMulti::fit_leaf(Histogram &hist, int parent) {
     LeafNode leaf(hp.out_dim);
-    if (hp.topk > 0) {
+    if (uses_projection() || !metric_factor.empty()) {
+        // The same metric on the residuals and L2 penalty leaves the optimal
+        // coefficient update equal to the ordinary shrunken mean residual.
+        const double *sum = hist.g.data() + hist.g.size() - hp.out_dim;
+        const double weight = hist.cnt.back() + hp.reg_l2;
+        for (int j = 0; j < hp.out_dim; ++j) { Opt[j] = -sum[j] / weight; }
+        if (metric_factor.empty()) {
+            const double *total = hist.h.data() + hist.h.size() - projection_dim;
+            Score_sum = 0.0;
+            for (int j = 0; j < projection_dim; ++j) {
+                Score_sum += CalScore(total[j], hist.cnt.back(), 0.0, hp.reg_l2);
+            }
+        }
+        leaf.Update(parent, Opt);
+    } else if (hp.topk > 0) {
         get_score_opt(hist, OptPair, Score, Score_sum);
         leaf.Update(parent, OptPair);
     } else {
@@ -842,19 +1081,66 @@ void BoosterMulti::update() {
     trees.push_back(std::move(tree));
 }
 
+void BoosterMulti::boost() {
+    // Manual gradients and Hessians have no built-in MSE/metric contract.
+    if (projection_dim == 0) { BoosterUtils::boost(); }
+}
+
+void BoosterMulti::project_split_gradients() {
+    const int input_width = projected_width();
+    const double divisor = sqrt(static_cast<double>(projection_dim));
+    vector<double> directions(static_cast<size_t>(projection_dim) * input_width);
+    // A fresh stream per retained tree makes continued fits and early-stop
+    // trimming reproducible. Row sampling has its own independent generator.
+    std::seed_seq seed{hp.seed, static_cast<unsigned>(trees.size())};
+    std::mt19937 rng(seed);
+    std::normal_distribution<double> normal;
+    for (auto &value : directions) { value = normal(rng) / divisor; }
+
+#pragma omp parallel
+    {
+        vector<double> metric_residual(metric_factor.empty() ? 0 : input_width);
+#pragma omp for schedule(static)
+        for (int row = 0; row < Train.num; ++row) {
+            const double *residual = G + static_cast<size_t>(row) * hp.out_dim;
+            if (!metric_factor.empty()) {
+                project_residual(residual, metric_residual.data());
+                residual = metric_residual.data();
+            }
+            for (int j = 0; j < projection_dim; ++j) {
+                const double *direction = directions.data() + static_cast<size_t>(j) * input_width;
+                double sum = 0.0;
+                for (int t = 0; t < input_width; ++t) { sum += residual[t] * direction[t]; }
+                H[static_cast<size_t>(row) * projection_dim + j] = sum;
+            }
+        }
+    }
+}
+
 void BoosterMulti::train(int num_rounds) {
     if (num_rounds <= 0) { return; }
     ScopedTeamSize team(hp.num_threads);
     const int initial_trees = tree_count();
     const bool evaluate = Eval.has_labels();
+    const bool quadratic = !metric_factor.empty();
+    const bool projected = uses_projection();
+    // Compare uniform-weight fits in ordinary RMSE units, while displaying
+    // the error in the units of the supplied loss.
+    auto score_data = [&](Dataset &data, func_score ordinary, double &comparison) {
+        if (rmse_scale != 1.0) {
+            return scaled_mse_score(data, data.num, hp.out_dim, rmse_scale, comparison);
+        }
+        comparison = quadratic ? quadratic_rmse(data) : ordinary(data, data.num, hp.out_dim);
+        return comparison;
+    };
     // initialize gradient and hessian
-    int elements = Train.num * hp.out_dim;
+    const int64_t elements = static_cast<int64_t>(Train.num) * hp.out_dim;
     G = (double *) calloc(elements, sizeof(double));
-    H = (double *) calloc(elements, sizeof(double));
-    if (obj.constHessian) {
+    H = (double *) calloc(projected ? static_cast<size_t>(Train.num) * projection_dim : elements, sizeof(double));
+    if (obj.constHessian && !quadratic && !projected) {
         double value = obj.hessian;
 #pragma omp parallel for schedule(static)
-        for (int i = 0; i < elements; ++i) {
+        for (int64_t i = 0; i < elements; ++i) {
             H[i] = value;
         }
     }
@@ -866,13 +1152,27 @@ void BoosterMulti::train(int num_rounds) {
     // start training
     for (int i = 0; i < num_rounds; ++i) {
         obj.f_grad(Train, G, H, Train.num, hp.out_dim);
+        if (projected) {
+            project_split_gradients();
+        } else if (quadratic) {
+            // MSE has unit Hessians, already represented by histogram counts.
+            // Keep raw residual sums in g for leaves and projected sums in h for splits.
+#pragma omp parallel for schedule(static)
+            for (int row = 0; row < Train.num; ++row) {
+                const size_t offset = static_cast<size_t>(row) * hp.out_dim;
+                project_residual(G + offset, H + offset);
+            }
+        }
         growth();
         update();
-        const double score = hp.show_round_metrics() ? obj.f_score(Train, Train.num, hp.out_dim) : 0.0;
+        double comparison, score = 0;
+        if (hp.show_round_metrics()) {
+            score = score_data(Train, obj.f_score, comparison);
+        }
         if (evaluate) {
-            double metric = obj.f_metric(Eval, Eval.num, hp.out_dim);
+            double metric = score_data(Eval, obj.f_metric, comparison);
             if (hp.show_round_metrics()) { showloss(score, metric, i); }
-            early_stoper.push(make_pair(metric, i));
+            early_stoper.push(make_pair(comparison, i), metric);
             if (!early_stoper.is_continue) {
                 auto info = early_stoper.best();
                 if (hp.show_summary()) { early_stoper.print_best(); }

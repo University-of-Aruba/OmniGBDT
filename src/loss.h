@@ -25,6 +25,7 @@ typedef double (*func_metric)(Dataset &, int, int);
 void mse_grad(Dataset &, double *, double *, int, int);
 
 double mse_score(Dataset &, int, int);
+double scaled_mse_score(Dataset &, int, int, double, double &);
 
 void bce_grad(Dataset &, double *, double *, int, int);
 

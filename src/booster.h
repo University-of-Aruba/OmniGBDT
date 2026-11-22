@@ -59,7 +59,7 @@ public:
 
     void growth();
 
-    void boost();
+    virtual void boost();
 
     virtual void train(int) = 0;
 
@@ -82,7 +82,8 @@ protected:
 
     void init_preds(double *, int) const;
     bool can_split(int depth, int rows, int leaves) const;
-    vector<Histogram> build_histograms(vector<int32_t> &order, int columns);
+    virtual double minimum_split_score() const { return hp.gamma; }
+    virtual vector<Histogram> build_histograms(vector<int32_t> &order, int columns);
     void queue_split(int leaf, int depth, vector<int32_t> &order, vector<Histogram> &hist);
     virtual LeafNode fit_leaf(Histogram &hist, int parent) = 0;
     virtual void hist_all(vector<int32_t> &, vector<Histogram> &) = 0;
@@ -133,7 +134,12 @@ public:
                  double, double, double, double, double,
                  int, bool, int, int);
 
+    int set_output_metric(const double *factor, int rows, int columns);
+    int set_diagonal_output_weights(const double *weights, int columns);
+    int set_projection_dim(int dim);
+
     void update() override;
+    void boost() override;
 
     void train(int) override;
 
@@ -144,12 +150,28 @@ private:
     vector<double> Score;
     vector<double> Opt;
     vector<pair<double, int>> OptPair;
+    vector<double> metric_factor;
+    int metric_rows = 0; // Zero encodes a diagonal factor.
+    int metric_rank;
+    int projection_dim = 0;
+    double lsq_gamma, rmse_scale = 1.0;
+
+    bool supports_output_metric(int columns) const;
+    bool uses_projection() const { return projection_dim > 0 && projection_dim < metric_rank; }
+    void project_split_gradients();
+    void use_uniform_weight(double weight);
+    int projected_width() const { return metric_rows == 0 ? hp.out_dim : metric_rows; }
+    double minimum_split_score() const override;
+    void project_residual(const double *residual, double *projected) const;
+    double quadratic_rmse(const Dataset &data) const;
+    SplitInfo boost_column_quadratic(const Histogram &hist, int column) const;
 
     void get_score_opt(Histogram &, vector<double> &, vector<double> &, double &);
 
     void get_score_opt(Histogram &, vector<pair<double, int>> &, vector<double> &, double &);
 
     void hist_all(vector<int32_t> &, vector<Histogram> &) override;
+    vector<Histogram> build_histograms(vector<int32_t> &order, int columns) override;
 
     SplitInfo boost_column_full(Histogram &, int);
 

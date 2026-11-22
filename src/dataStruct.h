@@ -12,26 +12,18 @@
 using namespace std;
 
 struct Histogram {
-    Histogram(int n = 1, int d = 1) : cnt(n, 0), g(n * d, 0), h(n * d, 0) {}
+    Histogram(int n = 1, int d = 1) : Histogram(n, d, d) {}
+    Histogram(int bins, int g_width, int h_width) :
+        cnt(bins), g(static_cast<size_t>(bins) * g_width), h(static_cast<size_t>(bins) * h_width) {}
 
     vector<int> cnt;
     vector<double> g;
     vector<double> h;
 
     inline void operator-(const Histogram &x) {
-        /* old and wrong
-        for (int i = 0; i < x.cnt.size(); i++) {
-            cnt[i] -= x.cnt[i];
-            g[i] -= x.g[i];
-            h[i] -= x.h[i];
-        }
-        */
-
-        for (int i = 0; i < x.cnt.size(); ++i) cnt[i] -= x.cnt[i];
-        for (int i = 0; i < x.g.size(); ++i) {
-            g[i] -= x.g[i];
-            h[i] -= x.h[i];
-        }
+        for (size_t i = 0; i < cnt.size(); ++i) cnt[i] -= x.cnt[i];
+        for (size_t i = 0; i < g.size(); ++i) g[i] -= x.g[i];
+        for (size_t i = 0; i < h.size(); ++i) h[i] -= x.h[i];
     }
 };
 
@@ -147,6 +139,7 @@ private:
     int k = 10;
     bool larger_better = true;
     pair<double, int> info{0.0, -1};
+    double reported_best = 0;
 
 public:
     bool is_continue = true;
@@ -160,12 +153,17 @@ public:
     }
 
     inline void print_best() const {
-        cout << "Best score " << get<0>(info) << " at round " << get<1>(info) << endl;
+        cout << "Best score " << reported_best << " at round " << get<1>(info) << endl;
     }
 
     inline void push(const pair<double, int> &x) {
+        push(x, x.first);
+    }
+
+    inline void push(const pair<double, int> &x, double reported_score) {
         if (info.second < 0 || (larger_better ? x.first > info.first : x.first < info.first)) {
             info = x;
+            reported_best = reported_score;
         }
         is_continue = x.second - info.second < k;
     }

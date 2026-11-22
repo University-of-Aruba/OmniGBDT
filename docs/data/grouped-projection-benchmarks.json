@@ -1,0 +1,451 @@
+{
+  "models": {
+    "full": "OmniGBDT 0.7.0",
+    "projected": "OmniGBDT 0.7.0 with Gaussian split projection",
+    "xgboost": "XGBoost 3.4.1 multi_output_tree"
+  },
+  "score_order": [
+    "original-unit pooled RMSE",
+    "coupled quadratic Q"
+  ],
+  "outer_folds": {
+    "stock": {
+      "groups": 63,
+      "folds": 5,
+      "repeats": 3
+    },
+    "energy": {
+      "groups": 12,
+      "folds": 4,
+      "repeats": 3
+    },
+    "scm": {
+      "groups": 40,
+      "folds": 5,
+      "repeats": 1
+    }
+  },
+  "inner_selection": {
+    "folds": 3,
+    "depths": [
+      2,
+      4
+    ],
+    "cap": 200,
+    "patience": 15,
+    "refit_rounds": "median of the three best prefixes at the selected depth"
+  },
+  "projection": {
+    "seed": 17,
+    "dimensions": {
+      "stock": 2,
+      "energy": 1,
+      "scm": 2
+    }
+  },
+  "aggregation": "Pool rows and targets in each out-of-fold repeat, then average the repeat scores. For paired group counts, pool each group over its repeats.",
+  "datasets": {
+    "stock": {
+      "mse": {
+        "full": {
+          "mean_repeat_scores": [
+            0.11838934856422367,
+            0.09859857123880944
+          ],
+          "per_repeat_scores": [
+            [
+              0.11810791140214452,
+              0.09858394360682142
+            ],
+            [
+              0.11819971262271986,
+              0.09841925709442494
+            ],
+            [
+              0.11886042166780661,
+              0.09879251301518197
+            ]
+          ]
+        },
+        "projected": {
+          "mean_repeat_scores": [
+            0.1183472692472513,
+            0.09842769327157147
+          ],
+          "per_repeat_scores": [
+            [
+              0.11844420781993907,
+              0.0986169441989744
+            ],
+            [
+              0.11871478955453155,
+              0.09871814982821542
+            ],
+            [
+              0.11788281036728326,
+              0.0979479857875246
+            ]
+          ]
+        },
+        "xgboost": {
+          "mean_repeat_scores": [
+            0.121448163479954,
+            0.10063735246252752
+          ],
+          "per_repeat_scores": [
+            [
+              0.12139757254643926,
+              0.10066776048205969
+            ],
+            [
+              0.12131194552070623,
+              0.1005614512153661
+            ],
+            [
+              0.1216349723727165,
+              0.10068284569015673
+            ]
+          ]
+        },
+        "paired_group_comparisons": {
+          "full": {
+            "projected_lower": 30,
+            "groups": 63,
+            "percent_change": -0.0355431611734458
+          },
+          "xgboost": {
+            "projected_lower": 32,
+            "groups": 63,
+            "percent_change": -2.5532656434236967
+          }
+        }
+      },
+      "coupled": {
+        "full": {
+          "mean_repeat_scores": [
+            0.11870702449554556,
+            0.09883410806323996
+          ],
+          "per_repeat_scores": [
+            [
+              0.11873610553859423,
+              0.09911577804233479
+            ],
+            [
+              0.11852191946736548,
+              0.09858365925452854
+            ],
+            [
+              0.11886304848067694,
+              0.09880288689285655
+            ]
+          ]
+        },
+        "projected": {
+          "mean_repeat_scores": [
+            0.11851242745263484,
+            0.09855482177489931
+          ],
+          "per_repeat_scores": [
+            [
+              0.11858128117499137,
+              0.09883011865008474
+            ],
+            [
+              0.1187193280913905,
+              0.09874895941094149
+            ],
+            [
+              0.11823667309152264,
+              0.09808538726367168
+            ]
+          ]
+        },
+        "xgboost": {
+          "mean_repeat_scores": [
+            0.12138806432151074,
+            0.1005956182693518
+          ],
+          "per_repeat_scores": [
+            [
+              0.12161517970914446,
+              0.10087577016633477
+            ],
+            [
+              0.1210682750197185,
+              0.10027003479662484
+            ],
+            [
+              0.12148073823566928,
+              0.10064104984509577
+            ]
+          ]
+        },
+        "paired_group_comparisons": {
+          "full": {
+            "projected_lower": 36,
+            "groups": 63,
+            "percent_change": -0.282580875988625
+          },
+          "xgboost": {
+            "projected_lower": 34,
+            "groups": 63,
+            "percent_change": -2.0287131085452548
+          }
+        }
+      }
+    },
+    "energy": {
+      "mse": {
+        "full": {
+          "mean_repeat_scores": [
+            8.20936093895635,
+            8.171809283527802
+          ],
+          "per_repeat_scores": [
+            [
+              8.679463613120863,
+              8.644838298698321
+            ],
+            [
+              6.881399572292733,
+              6.8365524267284705
+            ],
+            [
+              9.067219631455455,
+              9.034037125156615
+            ]
+          ]
+        },
+        "projected": {
+          "mean_repeat_scores": [
+            8.461987563786769,
+            8.42536950770978
+          ],
+          "per_repeat_scores": [
+            [
+              8.916552600307526,
+              8.882035124405633
+            ],
+            [
+              7.1742632113751315,
+              7.131576114302755
+            ],
+            [
+              9.295146879677647,
+              9.262497284420956
+            ]
+          ]
+        },
+        "xgboost": {
+          "mean_repeat_scores": [
+            7.68149958576603,
+            7.64052591550868
+          ],
+          "per_repeat_scores": [
+            [
+              8.056590942176438,
+              8.018079664212838
+            ],
+            [
+              7.154345673741089,
+              7.1111782005518815
+            ],
+            [
+              7.833562141380563,
+              7.792319881761322
+            ]
+          ]
+        },
+        "paired_group_comparisons": {
+          "full": {
+            "projected_lower": 6,
+            "groups": 12,
+            "percent_change": 3.0772995207412057
+          },
+          "xgboost": {
+            "projected_lower": 4,
+            "groups": 12,
+            "percent_change": 10.160619932428272
+          }
+        }
+      },
+      "coupled": {
+        "full": {
+          "mean_repeat_scores": [
+            10.786634773383462,
+            10.756524049258374
+          ],
+          "per_repeat_scores": [
+            [
+              11.160216373987614,
+              11.131734376103616
+            ],
+            [
+              9.526142049776503,
+              9.492021427523532
+            ],
+            [
+              11.673545896386264,
+              11.645816344147972
+            ]
+          ]
+        },
+        "projected": {
+          "mean_repeat_scores": [
+            10.670905269719313,
+            10.641188710707178
+          ],
+          "per_repeat_scores": [
+            [
+              11.0655320161796,
+              11.03758299934061
+            ],
+            [
+              9.415822996777585,
+              9.382053864245814
+            ],
+            [
+              11.531360796200751,
+              11.50392926853511
+            ]
+          ]
+        },
+        "xgboost": {
+          "mean_repeat_scores": [
+            7.667462394175129,
+            7.626558468671206
+          ],
+          "per_repeat_scores": [
+            [
+              8.010058426604166,
+              7.971509104605442
+            ],
+            [
+              7.148307432820053,
+              7.105161773683716
+            ],
+            [
+              7.8440213231011695,
+              7.803004527724463
+            ]
+          ]
+        },
+        "paired_group_comparisons": {
+          "full": {
+            "projected_lower": 9,
+            "groups": 12,
+            "percent_change": -1.0722361426705351
+          },
+          "xgboost": {
+            "projected_lower": 2,
+            "groups": 12,
+            "percent_change": 39.52805520890759
+          }
+        }
+      }
+    },
+    "scm": {
+      "mse": {
+        "full": {
+          "mean_repeat_scores": [
+            202.78869676071147,
+            174.9756859069748
+          ],
+          "per_repeat_scores": [
+            [
+              202.78869676071147,
+              174.9756859069748
+            ]
+          ]
+        },
+        "projected": {
+          "mean_repeat_scores": [
+            198.76451381502523,
+            171.2033149519269
+          ],
+          "per_repeat_scores": [
+            [
+              198.76451381502523,
+              171.2033149519269
+            ]
+          ]
+        },
+        "xgboost": {
+          "mean_repeat_scores": [
+            203.08629718550918,
+            175.29023018608413
+          ],
+          "per_repeat_scores": [
+            [
+              203.08629718550918,
+              175.29023018608413
+            ]
+          ]
+        },
+        "paired_group_comparisons": {
+          "full": {
+            "projected_lower": 30,
+            "groups": 40,
+            "percent_change": -1.9844217207208303
+          },
+          "xgboost": {
+            "projected_lower": 30,
+            "groups": 40,
+            "percent_change": -2.1280526704055336
+          }
+        }
+      },
+      "coupled": {
+        "full": {
+          "mean_repeat_scores": [
+            203.13019866908547,
+            175.24181407024395
+          ],
+          "per_repeat_scores": [
+            [
+              203.13019866908547,
+              175.24181407024395
+            ]
+          ]
+        },
+        "projected": {
+          "mean_repeat_scores": [
+            200.6841126337282,
+            173.2813620331015
+          ],
+          "per_repeat_scores": [
+            [
+              200.6841126337282,
+              173.2813620331015
+            ]
+          ]
+        },
+        "xgboost": {
+          "mean_repeat_scores": [
+            203.24964412741042,
+            175.23966869442626
+          ],
+          "per_repeat_scores": [
+            [
+              203.24964412741042,
+              175.23966869442626
+            ]
+          ]
+        },
+        "paired_group_comparisons": {
+          "full": {
+            "projected_lower": 27,
+            "groups": 40,
+            "percent_change": -1.1187124759828304
+          },
+          "xgboost": {
+            "projected_lower": 25,
+            "groups": 40,
+            "percent_change": -1.117501919465258
+          }
+        }
+      }
+    }
+  }
+}

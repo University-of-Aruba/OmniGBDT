@@ -31,6 +31,7 @@ General
 
 - ``seed``: default = ``0``, type = int
   - Controls the sequence of training row samples when ``subsample < 1.0``
+  - Controls Gaussian directions when ``projection_dim`` is set. Each tree uses the seed and its position in the retained ensemble.
 
 - ``hist_cache``: default = ``16``, type = int
   - Maximum number of histogram caches
@@ -67,6 +68,20 @@ Tree
 
 Learning
 --------
+
+- ``output_metric``: default = ``None``, type = array-like
+  - A weight vector sets how much each target's squared error counts. For example, ``[0.8, 0.2]`` gives the first target four times the weight of the second. A matrix also accounts for errors that reinforce or offset each other across targets.
+  - Use nonnegative vector weights or a symmetric positive-semidefinite matrix with one row and column per target. At least one direction must have positive weight.
+  - For an error vector ``e = prediction - target`` and matrix ``M``, the loss per row is ``0.5 * e @ M @ e``. A weight vector supplies the diagonal of ``M``. Validation reports the square root of the mean of ``e @ M @ e`` over rows and minimizes it for early stopping.
+  - With equal weights of ``1 / out_dim``, training produces the same splits, leaf values and early-stopping rounds as ordinary least squares. For any common positive weight ``w``, the equivalent ordinary split threshold is ``gamma / (out_dim * w)``, and the reported validation score is ordinary RMSE times ``sqrt(out_dim * w)``.
+  - Supported for regression with two or more targets in ``MultiOutputGBDT`` and ``MultiOutputGBDTRegressor``. Use the built-in ``loss=b"mse"``, ``topk=0``, and ``reg_l1=0``. The same metric applies to every row. The L2 leaf penalty uses the same metric as the loss.
+  - A direction with zero weight contributes nothing to split selection. Its prediction follows the usual regularized mean residual in each leaf. A Gram matrix can acquire very small negative eigenvalues through rounding. In that case, eigenvalues within roundoff of zero in the scaled matrix are treated as zero.
+
+- ``projection_dim``: default = ``None``, type = int or ``None``
+  - Use a positive integer ``k`` up to the number of targets to score candidate splits with Gaussian projections. For example, ``projection_dim=2`` uses two random mixtures of the residuals to grow each tree in a six-target regression. Every leaf still fits all six outputs.
+  - ``None`` uses the exact split score. A width covering all active output directions also uses exact scoring. With ``output_metric``, the projection acts on the metric-weighted residuals.
+  - A fresh matrix is drawn per tree with independent entries of variance ``1 / k``. Validation and early stopping use the full objective. Prediction requires only the fitted trees.
+  - Requires two or more targets, built-in ``loss=b"mse"``, ``topk=0``, ``reg_l1=0``, and finite, nonnegative ``reg_l2``. These settings apply to ``MultiOutputGBDT`` and ``MultiOutputGBDTRegressor``.
 
 - ``lr``: default = ``0.05``, type = float
   - Learning rate

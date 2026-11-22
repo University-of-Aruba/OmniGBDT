@@ -78,30 +78,35 @@ def partitions(ids, scheme, seed):
     return parts
 
 
-def fit_model(profile, x_train, y_train, x_valid, y_valid, subsample):
+def fit_model(profile, x_train, y_train, x_valid, y_valid, subsample, *, settings=None, output_metric=None):
     """Fit one full-gradient joint model including native data preparation.
 
     Args:
         profile: Model and regularization setting.
-        x_train: Training weights.
+        x_train: Training features.
         y_train: Training responses.
-        x_valid: Validation weights.
+        x_valid: Validation features.
         y_valid: Validation responses for early stopping.
         subsample: Fraction of training rows used to fit each tree.
+        settings: Benchmark settings. Defaults to the documented stock example.
+        output_metric: Optional dense quadratic loss matrix for OmniGBDT.
 
     Returns:
         Booster, inference round count and elapsed fitting time in milliseconds.
     """
-    s = SETTINGS
+    s = SETTINGS if settings is None else settings
     if profile == "OmniGBDT":
         from omnigbdt import MultiOutputGBDT, Verbosity
 
         start = perf_counter_ns()
-        model = MultiOutputGBDT(out_dim=y_train.shape[1], params={
+        params = {
             "loss": b"mse", "max_depth": s["max_depth"], "max_bins": s["bins"],
             "num_threads": s["threads"], "lr": s["learning_rate"], "early_stop": s["patience"],
             "verbosity": Verbosity.SILENT, "subsample": subsample,
-        })
+        }
+        if output_metric is not None:
+            params["output_metric"] = output_metric
+        model = MultiOutputGBDT(out_dim=y_train.shape[1], params=params)
         model.set_data((x_train, y_train), (x_valid, y_valid))
         model.train(s["round_cap"])
         elapsed = perf_counter_ns() - start
@@ -109,12 +114,14 @@ def fit_model(profile, x_train, y_train, x_valid, y_valid, subsample):
     else:
         import xgboost as xgb
 
+        if output_metric is not None:
+            raise ValueError("XGBoost fits this quadratic objective in transformed coordinates.")
         params = {"objective": "reg:squarederror", "tree_method": "hist",
                   "multi_strategy": "multi_output_tree", "device": "cpu", "eval_metric": "rmse",
                   "max_depth": s["max_depth"], "max_bin": s["bins"], "eta": s["learning_rate"],
                   "nthread": s["threads"], "seed": s["model_seed"], "subsample": subsample}
         if profile == "XGBoost matched":
-            # Omni averages half the gain over six targets. XGBoost sums full gains.
+            # Omni averages half the gain over targets. XGBoost sums full gains.
             params.update(min_child_weight=20, gamma=2 * y_train.shape[1] * 0.001)
         start = perf_counter_ns()
         train = xgb.DMatrix(x_train, label=y_train, nthread=1)

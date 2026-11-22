@@ -72,10 +72,39 @@ void mse_grad(Dataset &data, double *g, double *h, int n, int out_dim = 1) {
 }
 
 double mse_score(Dataset &data, int n, int out_dim = 1) {
+    double rmse;
+    return scaled_mse_score(data, n, out_dim, 1.0, rmse);
+}
+
+double scaled_mse_score(Dataset &data, int n, int out_dim, double score_scale, double &rmse) {
     auto preds = data.Preds;
     auto labels = data.Label_double;
     int N = n * out_dim;
-    return sqrt(ordered_sum(N, [&](int i) { return Sqr(preds[i] - labels[i]); }) / N);
+    const double mean_square = ordered_sum(N, [&](int i) { return Sqr(preds[i] - labels[i]); }) / N;
+    if (std::isnormal(mean_square) || std::isnan(mean_square)) {
+        rmse = sqrt(mean_square);
+        return rmse * score_scale;
+    }
+
+    // A representable RMSE can have a squared sum outside the double range.
+    // Rescale only at the extremes so ordinary fits keep their reduction order.
+    double scale = 0;
+    for (int i = 0; i < N; ++i) {
+        const double error = preds[i] - labels[i];
+        const double magnitude = std::isfinite(error) ? std::abs(error) : max(std::abs(preds[i]), std::abs(labels[i]));
+        scale = max(scale, magnitude);
+    }
+    if (scale == 0 || !std::isfinite(scale)) {
+        rmse = sqrt(mean_square);
+        return rmse * score_scale;
+    }
+    const double normalized = ordered_sum(N, [&](int i) {
+        const double error = preds[i] - labels[i];
+        return Sqr(std::isfinite(error) ? error / scale : preds[i] / scale - labels[i] / scale);
+    });
+    const double normalized_rmse = sqrt(normalized / N);
+    rmse = scale * normalized_rmse;
+    return scale * (normalized_rmse * score_scale);
 }
 
 void bce_grad(Dataset &data, double *g, double *h, int n, int out_dim) {
