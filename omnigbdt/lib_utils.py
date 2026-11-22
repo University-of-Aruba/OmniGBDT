@@ -236,6 +236,9 @@ def _configure_library(lib):
     if hasattr(lib, "SetSubsample"):
         lib.SetSubsample.argtypes = [c_void_p, c_double]
         lib.SetSubsample.restype = c_int
+    if hasattr(lib, "SetColsampleBytree"):
+        lib.SetColsampleBytree.argtypes = [c_void_p, c_double]
+        lib.SetColsampleBytree.restype = c_int
     if hasattr(lib, "SetClassificationMetric"):
         lib.SetClassificationMetric.argtypes = [c_void_p, c_bool]
         lib.SetClassificationMetric.restype = c_int
@@ -362,6 +365,7 @@ def default_params():
         "num_threads": 2,
         "min_samples": 20,
         "subsample": 1.0,
+        "colsample_bytree": 1.0,
         "lr": 0.05,
         "base_score": None,
         "reg_l1": 0.0,

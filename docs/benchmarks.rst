@@ -226,3 +226,33 @@ out-of-fold predictions to the output directory.
                --method "$method" --loss "$loss"
        done
    done
+
+Per-tree input feature sampling
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+OmniGBDT 0.8.0 can repeat this comparison with
+``--colsample-bytree 0.8``. The fraction was fixed before evaluation.
+Each tree considers four of the six Stock inputs, six of the eight Energy
+inputs, or 48 of the 61 SCM20D inputs. All training rows are used.
+
+.. csv-table::
+   :header: "Dataset", "MSE, all inputs", "MSE, 80%", "Coupled, all inputs", "Coupled, 80%"
+
+   Stock, 0.11839, 0.11898, 0.11871, 0.11893
+   Energy, 8.209, 7.531, 10.787, 8.635
+   SCM20D, 202.789, 201.947, 203.130, 202.286
+
+These are held-out RMSEs for OmniGBDT with exact split scoring across outputs,
+on the same grouped folds described above. Sampling reduced RMSE on nine of
+the twelve Energy geometries under MSE and eleven under the coupled loss.
+The Stock average rose slightly under both losses. On SCM20D the gains were
+small, and adding feature sampling to output projection slightly increased
+RMSE under both losses. Each configuration used a single model seed.
+
+For a fixed budget of 100 depth-four MSE trees on the first SCM20D fold,
+sampling reduced median fit time from 792 to 621 ms. Fit includes binning.
+Prediction for all 1,498 held-out rows took 2.67 and 2.71 ms respectively.
+These are seven warm, alternating pairs on one Apple M2 thread.
+
+The :download:`PKBoost source inventory <research/pkboost.md>` explains
+the choice of feature sampling and the scope of PKBoost's published results.

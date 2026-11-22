@@ -34,7 +34,7 @@ REPEATS = (20261121, 20261122, 20261123)
 DATASET_ID = {"stock": 1, "energy": 2, "scm": 3}
 
 
-def fit_omni(x, y, features, validation, depth, rounds, *, metric, projected, native):
+def fit_omni(x, y, features, validation, depth, rounds, *, metric, projected, native, colsample_bytree=1.0):
     """Fit OmniGBDT and return predictions at the selected ensemble prefix.
 
     Args:
@@ -47,6 +47,7 @@ def fit_omni(x, y, features, validation, depth, rounds, *, metric, projected, na
         metric: Coupled metric matrix, or None for ordinary MSE.
         projected: Whether to use Gaussian projection for split selection.
         native: Loaded OmniGBDT native library.
+        colsample_bytree: Fraction of input features available to each tree.
 
     Returns:
         Original-coordinate predictions and selected round count.
@@ -57,6 +58,8 @@ def fit_omni(x, y, features, validation, depth, rounds, *, metric, projected, na
     params = dict(loss=b"mse", max_bins=128, max_depth=depth, lr=0.05, min_samples=20,
                   reg_l1=0., reg_l2=1., gamma=0.001, num_threads=1, subsample=1.,
                   early_stop=PATIENCE if validation is not None else 0, verbosity=0)
+    if colsample_bytree != 1.0:
+        params["colsample_bytree"] = colsample_bytree
     if metric is not None:
         params["output_metric"] = metric
     if projected:
@@ -80,7 +83,7 @@ def fit_omni(x, y, features, validation, depth, rounds, *, metric, projected, na
         model.close()
 
 
-def fit_xgb(x, y, features, validation, depth, rounds, *, metric):
+def fit_xgb(x, y, features, validation, depth, rounds, *, metric, colsample_bytree=1.0):
     """Fit XGBoost's shared vector-leaf model and return its best prefix.
 
     Args:
@@ -91,6 +94,7 @@ def fit_xgb(x, y, features, validation, depth, rounds, *, metric):
         depth: Maximum tree depth.
         rounds: Inner cap or fixed outer round count.
         metric: Coupled metric matrix, or None for ordinary MSE.
+        colsample_bytree: Fraction of input features available to each tree.
 
     Returns:
         Original-coordinate predictions and selected round count.
@@ -103,7 +107,7 @@ def fit_xgb(x, y, features, validation, depth, rounds, *, metric):
     params = dict(objective="reg:squarederror", eval_metric="rmse", tree_method="hist",
                   multi_strategy="multi_output_tree", device="cpu", max_depth=depth,
                   max_bin=128, eta=0.05, reg_lambda=1., reg_alpha=0., min_child_weight=20,
-                  gamma=0.002 * width, nthread=1, seed=0, subsample=1.)
+                  gamma=0.002 * width, nthread=1, seed=0, subsample=1., colsample_bytree=colsample_bytree)
     options = {}
     if validation is not None:
         targets = validation if factor is None else validation @ factor
@@ -208,7 +212,11 @@ def main():
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--method", choices=["full", "projected", "xgboost"], required=True)
     parser.add_argument("--loss", choices=["mse", "coupled"], required=True)
+    parser.add_argument("--colsample-bytree", type=float, default=1.0,
+                        help="Fraction of input features offered to each tree (default: all).")
     args = parser.parse_args()
+    if not 0 < args.colsample_bytree <= 1:
+        parser.error("--colsample-bytree must be in (0, 1].")
     args.out.mkdir(parents=True, exist_ok=True)
 
     # The official eight-game test archive is excluded from this group CV.
@@ -227,19 +235,24 @@ def main():
     else:
         from omnigbdt import load_lib
         native = load_lib()
+        if args.colsample_bytree < 1 and not hasattr(native, "SetColsampleBytree"):
+            raise RuntimeError("Install a build with native input feature sampling support.")
         if args.method == "projected" and not hasattr(native, "SetProjectionDim"):
             raise RuntimeError("Install a build with native random projection support.")
         library = Path(native._name)
         package = "omnigbdt"
         fit = partial(fit_omni, projected=args.method == "projected", native=native)
 
-    report = dict(method=args.method, loss=args.loss, numpy=version("numpy"), version=version(package),
+    report = dict(method=args.method, loss=args.loss, colsample_bytree=args.colsample_bytree,
+                  numpy=version("numpy"), version=version(package),
                   library_sha256=sha256(library.read_bytes()).hexdigest(),
                   script_sha256=sha256(Path(__file__).read_bytes()).hexdigest(), cases={})
     label = f"{args.method}-{args.loss}"
+    if args.colsample_bytree < 1:
+        label += f"-colsample-{args.colsample_bytree}"
     for name, data in datasets.items():
         metric = None if args.loss == "mse" else coupled_metric(data[1].shape[1])
-        predict = partial(fit, metric=metric)
+        predict = partial(fit, metric=metric, colsample_bytree=args.colsample_bytree)
         repeats = REPEATS[:1] if name == "scm" else REPEATS
         report["cases"][name] = [
             run_repeat(name, data, seed, predict, int(metric is not None), args.out / f"{label}-{name}-{seed}.npz")

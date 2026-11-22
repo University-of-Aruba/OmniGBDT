@@ -196,3 +196,102 @@ def test_logloss_mean_at_float_limit(loss, capfd):
     model.train(1, eval_metric="logloss")
     printed = capfd.readouterr().out.split("eval->")[1].splitlines()[0]
     assert float(printed) == limit
+
+
+@pytest.mark.parametrize("multi", [False, True])
+@pytest.mark.parametrize("margin,step", [(40., 1.), (-720., -1.), (900., 0.)])
+def test_saturated_bce_leaf(multi, margin, step):
+    """Retain a finite Newton update in a correctly predicted, saturated leaf.
+
+    Args:
+        multi: Whether to fit two output columns in the same leaf.
+        margin: Initial log-odds for the first output.
+        step: Expected update at unit learning rate.
+    """
+    x = np.ones((8, 3))
+    base = np.array([margin, -margin]) if multi else margin
+    shape = (8, 2) if multi else (8,)
+    y = np.broadcast_to(base > 0, shape).astype(np.int32)
+    expected = base + (np.array([step, -step]) if multi else step)
+    cls = MultiOutputGBDT if multi else SingleOutputGBDT
+    model = cls(out_dim=2 if multi else 1, params=dict(
+        loss=b"bce", base_score=base, lr=1., reg_l2=0., colsample_bytree=.5,
+        num_threads=1, verbosity=0,
+    ))
+    try:
+        model.set_data((x, y))
+        model.train(1)
+        np.testing.assert_array_equal(model.predict(x), np.broadcast_to(expected, shape))
+    finally:
+        model.close()
+
+
+def test_flat_binary_output_preserves_other_split_gain():
+    """Split on an informative binary target when another target is saturated."""
+    bit = np.repeat([0., 1.], 8)
+    x = np.column_stack((bit, bit))
+    y = np.column_stack((np.ones_like(bit), bit)).astype(np.int32)
+    model = MultiOutputGBDT(out_dim=2, params=dict(
+        loss=b"bce", base_score=[900., 0.], lr=1., reg_l2=0., max_depth=1,
+        min_samples=1, colsample_bytree=.5, num_threads=1, verbosity=0,
+    ))
+    try:
+        model.set_data((x, y))
+        model.train(1)
+        np.testing.assert_array_equal(model.predict(x), np.column_stack((np.full(16, 900.), 4 * bit - 2)))
+    finally:
+        model.close()
+
+
+@pytest.mark.parametrize("margin", [-900., -40., 40., 900.])
+def test_wrong_saturated_binary_predictions_take_finite_steps(margin):
+    """Correct confident mistakes with pure and mixed labels in the same tree.
+
+    Args:
+        margin: Initial log-odds on either side of the decision boundary.
+    """
+    bit = np.repeat([0., 1.], 8)
+    x = np.column_stack((bit, bit))
+    correct = int(margin > 0)
+    labels = np.where(bit == 0, correct, 1 - correct)
+    y = np.column_stack((labels, np.full(16, 1 - correct))).astype(np.int32)
+    model = MultiOutputGBDT(out_dim=2, params=dict(
+        loss=b"bce", base_score=margin, lr=1., reg_l2=0., max_depth=1,
+        min_samples=1, colsample_bytree=.5, num_threads=1, verbosity=0,
+    ))
+    try:
+        model.set_data((x, y))
+        model.train(1)
+        pred = model.predict(x)
+        assert np.isfinite(pred).all()
+        np.testing.assert_array_equal(pred[:, 1], np.full(len(x), margin - 4 * np.sign(margin)))
+        assert np.all(np.sign(margin) * (pred[bit == 1, 0] - margin) < 0)
+    finally:
+        model.close()
+
+
+@pytest.mark.parametrize("sparse", [False, True])
+def test_binary_histogram_subtraction_near_saturation(sparse):
+    """Keep child updates finite across mixed curvatures and sampled trees.
+
+    Args:
+        sparse: Whether to select the two best outputs for each leaf.
+    """
+    rng = np.random.default_rng(1)
+    x = rng.normal(size=(513, 8))
+    held = rng.normal(size=(347, 8))
+    y = np.column_stack((x[:, 2] > .2, x[:, 1] * x[:, 5] > .2,
+                         x[:, 3] < 0, rng.random(len(x)) < .03)).astype(np.int32)
+    model = MultiOutputGBDT(out_dim=4, params=dict(
+        loss=b"bce", base_score=[37., -37., 37., -37.], lr=.1, reg_l2=0.,
+        max_depth=4, min_samples=5, colsample_bytree=.7, subsample=.7,
+        seed=0, topk=2 if sparse else 0, num_threads=1, verbosity=0,
+    ))
+    try:
+        model.set_data((x, y), (held, None))
+        model.train(15)
+        assert np.isfinite(model.preds_train).all()
+        assert np.isfinite(model.predict(held)).all()
+        np.testing.assert_array_equal(model.preds_eval, model.predict(held))
+    finally:
+        model.close()

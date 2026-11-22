@@ -6,6 +6,7 @@ from decimal import Context, Decimal, localcontext
 from numbers import Integral, Real
 from pathlib import Path
 import stat
+from statistics import mean
 import tempfile
 from operator import index
 from typing import Callable
@@ -23,6 +24,8 @@ from .lib_utils import (
 
 ObjectiveCallback = Callable[[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]]
 MetricCallback = Callable[[np.ndarray, np.ndarray], float]
+
+_SAMPLING_SETTERS = (("subsample", "SetSubsample"), ("colsample_bytree", "SetColsampleBytree"))
 
 
 def _factor_near_singular_metric(metric):
@@ -206,7 +209,7 @@ class BoostUtils:
         return array
 
     def _auto_base_scores(self, labels=None):
-        """Build automatically inferred base scores.
+        """Compute training target means, recovering from float64 sum overflow.
 
         Args:
             labels: Optional training labels used to infer the initial prediction.
@@ -219,10 +222,16 @@ class BoostUtils:
             return np.zeros(expected, dtype=np.float64)
 
         label_array = np.asarray(labels, dtype=np.float64)
-        if expected == 1:
-            return np.array([float(np.mean(label_array))], dtype=np.float64)
-
-        return np.ascontiguousarray(np.mean(label_array, axis=0), dtype=np.float64)
+        if expected == 1 or label_array.ndim == 1:
+            label_array = label_array.reshape(-1, 1)
+        with np.errstate(over="ignore", invalid="ignore"):
+            scores = np.ascontiguousarray(np.mean(label_array, axis=0))
+        for column in np.flatnonzero(~np.isfinite(scores)):
+            values = label_array[:, column]
+            if np.isfinite(values).all():
+                # statistics.mean sums floats as exact ratios before dividing.
+                scores[column] = mean(map(float, values))
+        return scores
 
     def _resolve_base_scores(self, labels=None):
         """Resolve the effective base-score vector for the current model state.
@@ -503,16 +512,17 @@ class BoostUtils:
                 raise ValueError("projection_dim must be an integer from 1 through out_dim.")
             if not hasattr(self.lib, "SetProjectionDim"):
                 raise RuntimeError("projection_dim requires a native library with SetProjectionDim.")
-        fraction = self.params["subsample"]
-        if (
-            not isinstance(fraction, Real)
-            or isinstance(fraction, bool)
-            or not 0 < fraction <= 1
-            or float(fraction) == 0
-        ):
-            raise ValueError("subsample must be a finite number in (0, 1].")
-        if fraction < 1 and not hasattr(self.lib, "SetSubsample"):
-            raise RuntimeError("Row subsampling requires a native library with SetSubsample.")
+        for name, setter in _SAMPLING_SETTERS:
+            fraction = self.params[name]
+            if (
+                not isinstance(fraction, Real)
+                or isinstance(fraction, bool)
+                or not 0 < fraction <= 1
+                or float(fraction) == 0
+            ):
+                raise ValueError(f"{name} must be a finite number in (0, 1].")
+            if fraction < 1 and not hasattr(self.lib, setter):
+                raise RuntimeError(f"{name} requires a native library with {setter}.")
 
     def _replace_booster(self, new_booster, inp_dim, base_scores, output_metric=None):
         """Configure a newly constructed native booster and replace the current one.
@@ -525,15 +535,16 @@ class BoostUtils:
                 factor from _prepare_output_metric. The booster copies its values.
 
         Raises:
-            ValueError: If the native booster rejects the sample fraction, metric
+            ValueError: If the native booster rejects a sampling fraction, metric
                 or projection dimension.
             RuntimeError: If the native library lacks equal-weight LSQ support.
         """
-        fraction = self.params["subsample"]
         projection_dim = self.params["projection_dim"]
         try:
-            if fraction < 1 and self.lib.SetSubsample(new_booster, float(fraction)) != 0:
-                raise ValueError("Native booster rejected subsample.")
+            for name, setter in _SAMPLING_SETTERS:
+                fraction = self.params[name]
+                if fraction < 1 and getattr(self.lib, setter)(new_booster, float(fraction)) != 0:
+                    raise ValueError(f"Native booster rejected {name}.")
             if output_metric is not None:
                 if output_metric.ndim == 1:
                     if hasattr(self.lib, "SetDiagonalOutputWeights"):

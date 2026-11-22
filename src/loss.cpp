@@ -111,9 +111,22 @@ void bce_grad(Dataset &data, double *g, double *h, int n, int out_dim) {
     auto preds = data.Preds;
     auto labels = data.Label_int32;
     int N = n * out_dim;
+    const double saturation_margin = -log(std::numeric_limits<double>::epsilon() / 2);
 #pragma omp parallel for schedule(static)
     for (int i = 0; i < N; ++i) {
-        const double t = 1.0f / (1.0f + exp(-preds[i]));
+        const double margin = preds[i];
+        if (abs(margin) >= saturation_margin) {
+            // Here 1 + exp(-abs(margin)) rounds to 1. For a correct prediction,
+            // the small tail can still represent both derivatives. For a wrong
+            // prediction, logistic loss's global curvature bound gives a finite
+            // corrective step even when the local curvature underflows.
+            const bool correct = (margin > 0) == (labels[i] == 1);
+            const double tail = correct ? exp(-abs(margin)) : 1.0;
+            g[i] = labels[i] ? -tail : tail;
+            h[i] = correct ? tail : 0.25;
+            continue;
+        }
+        const double t = 1.0f / (1.0f + exp(-margin));
         g[i] = t - labels[i];
         h[i] = t * (1 - t);
     }

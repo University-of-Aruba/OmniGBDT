@@ -61,6 +61,7 @@ struct HyperParameter {
     double reg_l2 = 1.0;
     double gamma = 1e-3;
     double subsample = 1.0;
+    double colsample_bytree = 1.0;
     double max_delta = 10.0;
     unsigned int seed = 0;
     double base_score = 0.0f;

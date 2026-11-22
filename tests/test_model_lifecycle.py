@@ -34,6 +34,36 @@ def _objective(preds, labels):
 
 
 @pytest.mark.parametrize("multi", [False, True])
+def test_large_constant_labels_have_a_finite_mean_prediction(multi):
+    """Fit a constant target at the finite float64 limit without overflowing.
+
+    Args:
+        multi: Whether to fit both signs of the limiting value as two targets.
+    """
+    model, x, _ = _single_or_multi(multi)
+    y = np.full(len(x), np.finfo(np.float64).max)
+    if multi:
+        y = np.column_stack((y, -y))
+    model.set_data((x, y))
+    np.testing.assert_array_equal(model.predict(x), y)
+    model.train(1)
+    np.testing.assert_array_equal(model.predict(x), y)
+    model.close()
+
+
+def test_overflowing_target_sum_preserves_cancellation_and_other_targets():
+    """Recover a small residual mean and retain ordinary rounding on another target."""
+    model, x, _ = _single_or_multi(True)
+    limit = np.finfo(np.float64).max
+    tiny = 1e-300
+    y = np.array([[limit, .3], [limit, .01], [-limit, .05], [-limit, .7], [tiny, .2]])
+    model.set_data((x[:5], y))
+    expected = np.array([tiny / 5, np.mean(y[:, 1])])
+    np.testing.assert_array_equal(model.predict(x[:1])[0], expected)
+    model.close()
+
+
+@pytest.mark.parametrize("multi", [False, True])
 def test_replace_dataset_labels_and_attach_eval(multi):
     """Check retained labels, delayed eval registration and replacing a dataset.
 

@@ -4,7 +4,7 @@ Use OmniGBDT to predict several targets with one gradient boosting model in Pyth
 
 [Installation](#installation) · [First model](#first-model) · [Benchmarks](#benchmarks) · [API reference](https://omnigbdt.readthedocs.io/en/latest/api.html)
 
-Train a joint model with `MultiOutputGBDT`, or use `SingleOutputGBDT` for a single target. In 0.7.0, `output_metric` sets how target errors count, and `projection_dim` sets how many random combinations of those errors each tree uses to choose splits. Both are optional. For custom objectives, use the Python callbacks. For pipelines and model selection, use the scikit-learn estimator.
+Train a joint model with `MultiOutputGBDT`, or use `SingleOutputGBDT` for a single target. In 0.8.0, `colsample_bytree` controls how many input features each tree can use. The default of `1.0` uses them all. For multi-output regression, `output_metric` sets how target errors count and `projection_dim` controls how many random combinations of those errors each tree uses to choose splits. For custom objectives, use the Python callbacks. For pipelines and model selection, use the scikit-learn estimator.
 
 ## Installation
 
@@ -27,7 +27,7 @@ pip install "omnigbdt[plot]"
 pip install "omnigbdt[sklearn]"
 ```
 
-Wheels are available for Linux x86_64, Windows x86_64, and macOS 14 or later on Apple silicon. To try the 0.7.0 quadratic loss and random projection from source, run `python -m pip install .` from the repository root. [Source installation](docs/install.rst)
+Wheels are available for Linux x86_64, Windows x86_64, and macOS 14 or later on Apple silicon. To install from source, run `python -m pip install .` from the repository root. [Source installation](docs/install.rst)
 
 ## First model
 

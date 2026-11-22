@@ -22,6 +22,10 @@ OMNIGBDT_EXPORT int SetSubsample(BoosterUtils *foo, double fraction) {
     return foo ? foo->set_subsample(fraction) : -1;
 }
 
+OMNIGBDT_EXPORT int SetColsampleBytree(BoosterUtils *foo, double fraction) {
+    return foo ? foo->set_colsample_bytree(fraction) : -1;
+}
+
 OMNIGBDT_EXPORT int SetClassificationMetric(BoosterUtils *foo, bool use_logloss) {
     return foo ? foo->set_classification_metric(use_logloss) : -1;
 }

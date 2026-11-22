@@ -103,6 +103,14 @@ def _as_eval_set(eval_set, target_converter):
 class _WrapperMixin:
     """Shared helper methods for sklearn-compatible OmniGBDT estimators."""
 
+    def __setstate__(self, state):
+        """Restore early estimator pickles with all input features available.
+
+        Args:
+            state: Estimator attribute mapping supplied by pickle.
+        """
+        super().__setstate__({"colsample_bytree": 1.0, **state})
+
     def close(self):
         """Release the native booster and clear the fitted estimator attributes."""
         booster = self.__dict__.pop("booster_", None)
@@ -168,6 +176,7 @@ class SingleOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
         num_threads=2,
         min_samples=20,
         subsample=1.0,
+        colsample_bytree=1.0,
         lr=0.05,
         base_score=None,
         reg_l1=0.0,
@@ -194,6 +203,8 @@ class SingleOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
             num_threads: Number of native threads.
             min_samples: Minimum rows in each leaf.
             subsample: Fraction of training rows drawn without replacement per tree.
+            colsample_bytree: Fraction of input features drawn without replacement
+                per tree, rounded down with at least one feature.
             lr: Learning rate.
             base_score: Initial prediction value. ``None`` enables automatic
                 regression mean initialization.
@@ -218,6 +229,7 @@ class SingleOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
         self.num_threads = num_threads
         self.min_samples = min_samples
         self.subsample = subsample
+        self.colsample_bytree = colsample_bytree
         self.lr = lr
         self.base_score = base_score
         self.reg_l1 = reg_l1
@@ -244,6 +256,7 @@ class SingleOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
             "num_threads": self.num_threads,
             "min_samples": self.min_samples,
             "subsample": self.subsample,
+            "colsample_bytree": self.colsample_bytree,
             "lr": self.lr,
             "base_score": self.base_score,
             "reg_l1": self.reg_l1,
@@ -323,6 +336,7 @@ class MultiOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
         num_threads=2,
         min_samples=20,
         subsample=1.0,
+        colsample_bytree=1.0,
         lr=0.05,
         base_score=None,
         reg_l1=0.0,
@@ -355,6 +369,8 @@ class MultiOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
             num_threads: Number of native threads.
             min_samples: Minimum rows in each leaf.
             subsample: Fraction of training rows drawn without replacement per tree.
+            colsample_bytree: Fraction of input features drawn without replacement
+                per tree, rounded down with at least one feature.
             lr: Learning rate.
             base_score: Initial prediction value. ``None`` enables automatic
                 regression mean initialization.
@@ -383,6 +399,7 @@ class MultiOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
         self.num_threads = num_threads
         self.min_samples = min_samples
         self.subsample = subsample
+        self.colsample_bytree = colsample_bytree
         self.lr = lr
         self.base_score = base_score
         self.reg_l1 = reg_l1
@@ -421,6 +438,7 @@ class MultiOutputGBDTRegressor(_WrapperMixin, RegressorMixin, BaseEstimator):
             "num_threads": self.num_threads,
             "min_samples": self.min_samples,
             "subsample": self.subsample,
+            "colsample_bytree": self.colsample_bytree,
             "lr": self.lr,
             "base_score": self.base_score,
             "reg_l1": self.reg_l1,

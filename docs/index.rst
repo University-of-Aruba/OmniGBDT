@@ -42,8 +42,7 @@ For optional extras, source installs, local-path installs, and Windows build not
 Quick start
 -----------
 
-This source example uses the 0.7.0 coupled quadratic loss and random projection.
-Install from the repository root with ``python -m pip install .``.
+This example uses coupled quadratic loss and random projection.
 The two targets share a signal. In this example, the model needs to predict
 both targets accurately and get their average right.
 

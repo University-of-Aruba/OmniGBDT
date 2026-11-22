@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <math.h>
+#include <limits>
 #include <unordered_set>
 
 using namespace std;
@@ -23,29 +24,44 @@ inline static double ThresholdL1(double w, double reg_l1) {
     return 0.0;
 }
 
-inline static double CalWeight(double g_sum, double h_sum, double reg_l1, double reg_l2) {
-    if (reg_l1 == 0) { return -g_sum / (h_sum + reg_l2); }
-    else { return -ThresholdL1(g_sum, reg_l1) / (h_sum + reg_l2); }
+// Nonnegative binary observation curvatures satisfy H >= (epsilon/4) * |G|
+// under bce_grad, a bound inherited by exact sums and by L1 shrinkage.
+// Sibling or prefix subtraction can lose a tiny Hessian. In that case use
+// a finite corrective step of at most four log-odds, as for saturated rows.
+inline static double NewtonCurvature(double grad, double curvature, bool binary) {
+    if (binary && (curvature <= 0.0 ||
+                   curvature < std::abs(grad) * (std::numeric_limits<double>::epsilon() / 4))) {
+        return 0.25 * std::max(1.0, std::abs(grad));
+    }
+    return curvature;
 }
 
-inline static void CalWeight(vector<double> &value, double *g_sum, double *h_sum, double reg_l1, double reg_l2) {
-    if (reg_l1 == 0) {
-        for (int i = 0; i < value.size(); ++i) { value[i] = -g_sum[i] / (h_sum[i] + reg_l2); }
-    } else {
-        for (int i = 0; i < value.size(); ++i) { value[i] = -ThresholdL1(g_sum[i], reg_l1) / (h_sum[i] + reg_l2); }
+inline static double CalWeight(double g_sum, double h_sum, double reg_l1, double reg_l2, bool binary = false) {
+    const double grad = reg_l1 == 0 ? g_sum : ThresholdL1(g_sum, reg_l1);
+    const double curvature = NewtonCurvature(grad, h_sum + reg_l2, binary);
+    // A locally flat objective admits a zero update, including unregularized leaves.
+    if (grad == 0.0 && curvature == 0.0) { return 0.0; }
+    return -grad / curvature;
+}
+
+inline static void CalWeight(vector<double> &value, double *g_sum, double *h_sum,
+                             double reg_l1, double reg_l2, bool binary = false) {
+    for (size_t i = 0; i < value.size(); ++i) {
+        value[i] = CalWeight(g_sum[i], h_sum[i], reg_l1, reg_l2, binary);
     }
 }
 
-inline static double CalScore(double g_sum, double h_sum, double reg_l1, double reg_l2) {
-    if (reg_l1 == 0) { return Sqr(g_sum) / (h_sum + reg_l2); }
-    return Sqr(ThresholdL1(g_sum, reg_l1)) / (h_sum + reg_l2);
+inline static double CalScore(double g_sum, double h_sum, double reg_l1, double reg_l2, bool binary = false) {
+    const double grad = reg_l1 == 0 ? g_sum : ThresholdL1(g_sum, reg_l1);
+    const double curvature = NewtonCurvature(grad, h_sum + reg_l2, binary);
+    if (grad == 0.0 && curvature == 0.0) { return 0.0; }
+    return Sqr(grad) / curvature;
 }
 
-inline static void CalScore(vector<double> &value, double *g_sum, double *h_sum, double reg_l1, double reg_l2) {
-    if (reg_l1 == 0) {
-        for (int i = 0; i < value.size(); ++i) { value[i] = Sqr(g_sum[i]) / (h_sum[i] + reg_l2); }
-    } else {
-        for (int i = 0; i < value.size(); ++i) { value[i] = Sqr(ThresholdL1(g_sum[i], reg_l1)) / (h_sum[i] + reg_l2); }
+inline static void CalScore(vector<double> &value, double *g_sum, double *h_sum,
+                            double reg_l1, double reg_l2, bool binary = false) {
+    for (size_t i = 0; i < value.size(); ++i) {
+        value[i] = CalScore(g_sum[i], h_sum[i], reg_l1, reg_l2, binary);
     }
 }
 

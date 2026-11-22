@@ -1,4 +1,5 @@
 #include "booster.h"
+#include <numeric>
 
 namespace {
 
@@ -95,6 +96,12 @@ void BoosterUtils::set_gh(double *x, double *y) {
 int BoosterUtils::set_subsample(double fraction) {
     if (!(fraction > 0.0 && fraction <= 1.0)) { return -1; }
     hp.subsample = fraction;
+    return 0;
+}
+
+int BoosterUtils::set_colsample_bytree(double fraction) {
+    if (!(fraction > 0.0 && fraction <= 1.0)) { return -1; }
+    hp.colsample_bytree = fraction;
     return 0;
 }
 
@@ -294,14 +301,14 @@ void BoosterSingle::reset() {
 void BoosterSingle::get_score_opt(Histogram &Hist, double &opt, double &score_sum) {
     double gr = Hist.g[Hist.g.size() - 1];
     double hr = Hist.h[Hist.h.size() - 1];
-    opt = CalWeight(gr, hr, hp.reg_l1, hp.reg_l2);
-    score_sum = CalScore(gr, hr, hp.reg_l1, hp.reg_l2);
+    opt = CalWeight(gr, hr, hp.reg_l1, hp.reg_l2, binary_stats);
+    score_sum = CalScore(gr, hr, hp.reg_l1, hp.reg_l2, binary_stats);
 }
 
 void BoosterSingle::hist_all(vector<int32_t> &order, vector<Histogram> &Hist) {
 #pragma omp parallel for schedule(static)
     for (int i = 0; i < static_cast<int>(Hist.size()); i++) {
-        histogram_single(order, Hist[i], Train.Maps + i * Train.num, G, H);
+        histogram_single(order, Hist[i], Train.Maps + static_cast<size_t>(tree_columns[i]) * Train.num, G, H);
     }
 }
 
@@ -319,8 +326,8 @@ SplitInfo BoosterSingle::boost_column(Histogram &Hist, int column) {
         }
         gr = Hist.g[max_bins] - Hist.g[i];
         hr = Hist.h[max_bins] - Hist.h[i];
-        tmp = CalScore(Hist.g[i], Hist.h[i], hp.reg_l1, hp.reg_l2) + \
-              CalScore(gr, hr, hp.reg_l1, hp.reg_l2);
+        tmp = CalScore(Hist.g[i], Hist.h[i], hp.reg_l1, hp.reg_l2, binary_stats) + \
+              CalScore(gr, hr, hp.reg_l1, hp.reg_l2, binary_stats);
         if (tmp > gain) {
             gain = tmp;
             row_bins = i;
@@ -337,10 +344,10 @@ SplitInfo BoosterSingle::boost_column(Histogram &Hist, int column) {
 }
 
 void BoosterSingle::boost_all(vector<Histogram> &Hist) {
-    vector<SplitInfo> candidates(hp.inp_dim);
+    vector<SplitInfo> candidates(Hist.size());
 #pragma omp parallel for schedule(static)
-    for (int i = 0; i < hp.inp_dim; ++i) {
-        candidates[i] = boost_column(Hist[i], i);
+    for (int i = 0; i < static_cast<int>(Hist.size()); ++i) {
+        candidates[i] = boost_column(Hist[i], tree_columns[i]);
     }
     meta = select_best_split(candidates);
 }
@@ -360,7 +367,7 @@ bool BoosterUtils::can_split(int depth, int rows, int leaves) const {
 vector<Histogram> BoosterUtils::build_histograms(vector<int32_t> &order, int columns) {
     vector<Histogram> hist;
     hist.reserve(columns);
-    for (int i = 0; i < columns; ++i) { hist.emplace_back(bin_nums[i], hp.out_dim); }
+    for (int i = 0; i < columns; ++i) { hist.emplace_back(bin_nums[tree_columns[i]], hp.out_dim); }
     hist_all(order, hist);
     return hist;
 }
@@ -385,9 +392,27 @@ void BoosterUtils::boost() {
     update();
 }
 
-void BoosterUtils::growth() {
+void BoosterUtils::sample_tree_columns() {
+    const int count = max(1, static_cast<int>(hp.inp_dim * hp.colsample_bytree));
+    if (count == hp.inp_dim && static_cast<int>(tree_columns.size()) == count) { return; }
+    tree_columns.resize(hp.inp_dim);
+    std::iota(tree_columns.begin(), tree_columns.end(), 0);
+    if (count < hp.inp_dim) {
+        // The third seed word separates this stream from rows and output projections.
+        std::seed_seq seed{hp.seed, static_cast<unsigned>(trees.size()), 1u};
+        std::mt19937 sampler(seed);
+        std::shuffle(tree_columns.begin(), tree_columns.end(), sampler);
+        tree_columns.resize(count);
+        std::sort(tree_columns.begin(), tree_columns.end());
+    }
+}
+
+void BoosterUtils::growth(bool binary) {
+    binary_stats = binary;
     tree.clear();
     cache.data.clear();
+    sample_tree_columns();
+    const int feature_count = static_cast<int>(tree_columns.size());
 
     vector<int32_t> sampled_rows;
     if (hp.subsample < 1.0) {
@@ -400,7 +425,7 @@ void BoosterUtils::growth() {
         std::sort(sampled_rows.begin(), sampled_rows.end());
     }
     auto &root_rows = hp.subsample < 1.0 ? sampled_rows : Train.Orders;
-    auto root_hist = build_histograms(root_rows, can_split(0, static_cast<int>(root_rows.size()), 1) ? hp.inp_dim : 1);
+    auto root_hist = build_histograms(root_rows, can_split(0, static_cast<int>(root_rows.size()), 1) ? feature_count : 1);
     tree.add_leaf(fit_leaf(root_hist[0], -1), true);
     queue_split(tree.leaf_num, 0, root_rows, root_hist);
 
@@ -410,15 +435,15 @@ void BoosterUtils::growth() {
         CacheInfo info = std::move(cache.data.front());
         cache.data.pop_front();
         const auto &split = info.split;
-        int rows_l = info.hist[split.column].cnt[split.bin];
+        const auto slot = std::lower_bound(tree_columns.begin(), tree_columns.end(), split.column) - tree_columns.begin();
+        int rows_l = info.hist[slot].cnt[split.bin];
         int rows_r = static_cast<int>(info.order.size()) - rows_l;
         vector<int32_t> order_l(rows_l), order_r(rows_r);
-        rebuild_order(info.order, order_l, order_r, Train.Maps + Train.num * split.column, split.bin);
+        rebuild_order(info.order, order_l, order_r, Train.Maps + static_cast<size_t>(split.column) * Train.num, split.bin);
 
-        // A terminal leaf takes its totals from feature zero. Preserve its summation order
-        // while skipping all other features if neither child can produce a split.
+        // Leaf totals always use the first selected feature's summation order.
         const int columns = can_split(info.depth + 1, max(rows_l, rows_r), tree.leaf_num + 1)
-                            ? hp.inp_dim : 1;
+                            ? feature_count : 1;
         bool right_is_smaller = rows_r <= rows_l;
         auto smaller_hist = build_histograms(right_is_smaller ? order_r : order_l, columns);
 #pragma omp parallel for schedule(static)
@@ -473,7 +498,7 @@ void BoosterSingle::train(int num_rounds) {
     // start training
     for (int i = 0; i < num_rounds; ++i) {
         obj.f_grad(Train, G, H, Train.num, 1);
-        growth();
+        growth(obj.f_grad == bce_grad);
         update();
         const double score = hp.show_round_metrics() ? obj.f_score(Train, Train.num, 1) : 0.0;
         if (evaluate) {
@@ -519,7 +544,7 @@ void BoosterSingle::train_multi(int num_rounds, int out_dim) {
     for (int i = 0; i < num_rounds; ++i) {
         obj.f_grad(Train, G, H, Train.num, out_dim);
         for (int j = 0; j < out_dim; ++j) {
-            growth();
+            growth(obj.f_grad == bce_grad);
             update();
             if (j < out_dim - 1) {
                 G += Train.num;
@@ -755,8 +780,8 @@ double BoosterMulti::quadratic_rmse(const Dataset &data) const {
 void BoosterMulti::get_score_opt(Histogram &Hist, vector<double> &opt, vector<double> &score, double &score_sum) {
     double *gr = &Hist.g[Hist.g.size() - hp.out_dim];
     double *hr = &Hist.h[Hist.h.size() - hp.out_dim];
-    CalWeight(opt, gr, hr, hp.reg_l1, hp.reg_l2);
-    CalScore(score, gr, hr, hp.reg_l1, hp.reg_l2);
+    CalWeight(opt, gr, hr, hp.reg_l1, hp.reg_l2, binary_stats);
+    CalScore(score, gr, hr, hp.reg_l1, hp.reg_l2, binary_stats);
     score_sum = 0.0f;
     for (int i = 0; i < hp.out_dim; ++i) {
         score_sum += score[i];
@@ -769,7 +794,7 @@ BoosterMulti::get_score_opt(Histogram &Hist, vector<pair<double, int>> &opt, vec
     double *hr = &Hist.h[Hist.h.size() - hp.out_dim];
     TopkPriority<pair<double, int>> score_k(hp.topk);
     for (int i = 0; i < hp.out_dim; ++i) {
-        score[i] = CalScore(gr[i], hr[i], hp.reg_l1, hp.reg_l2);
+        score[i] = CalScore(gr[i], hr[i], hp.reg_l1, hp.reg_l2, binary_stats);
         score_k.push(make_pair(score[i], i));
     }
     opt.resize(0);
@@ -778,7 +803,7 @@ BoosterMulti::get_score_opt(Histogram &Hist, vector<pair<double, int>> &opt, vec
         auto top = score_k.data.top();
         score_sum += get<0>(top);
         int k = get<1>(top);
-        opt.push_back(make_pair(CalWeight(gr[k], hr[k], hp.reg_l1, hp.reg_l2), k));
+        opt.push_back(make_pair(CalWeight(gr[k], hr[k], hp.reg_l1, hp.reg_l2, binary_stats), k));
         score_k.data.pop();
     }
 }
@@ -786,24 +811,24 @@ BoosterMulti::get_score_opt(Histogram &Hist, vector<pair<double, int>> &opt, vec
 void BoosterMulti::hist_all(vector<int32_t> &order, vector<Histogram> &Hist) {
 #pragma omp parallel for schedule(static)
     for (int i = 0; i < static_cast<int>(Hist.size()); ++i) {
-        histogram_multi(order, Hist[i], Train.Maps + i * Train.num, G, H, hp.out_dim);
+        histogram_multi(order, Hist[i], Train.Maps + static_cast<size_t>(tree_columns[i]) * Train.num, G, H, hp.out_dim);
     }
 }
 
 vector<Histogram> BoosterMulti::build_histograms(vector<int32_t> &order, int columns) {
     if (!uses_projection()) { return BoosterUtils::build_histograms(order, columns); }
 
-    // Every feature needs k split channels. Only feature zero needs raw residual
+    // Every selected feature needs k split channels. Only the first needs raw residual
     // sums to fit the leaves, including leaves obtained by sibling subtraction.
     vector<Histogram> hist;
     hist.reserve(columns);
     for (int col = 0; col < columns; ++col) {
-        hist.emplace_back(bin_nums[col], col == 0 ? hp.out_dim : 0, projection_dim);
+        hist.emplace_back(bin_nums[tree_columns[col]], col == 0 ? hp.out_dim : 0, projection_dim);
     }
 #pragma omp parallel for schedule(static)
     for (int col = 0; col < columns; ++col) {
         auto &bins = hist[col];
-        const uint16_t *maps = Train.Maps + static_cast<size_t>(col) * Train.num;
+        const uint16_t *maps = Train.Maps + static_cast<size_t>(tree_columns[col]) * Train.num;
         const int raw_width = col == 0 ? hp.out_dim : 0;
         for (int row : order) {
             const size_t bin = maps[row];
@@ -845,8 +870,8 @@ SplitInfo BoosterMulti::boost_column_full(Histogram &Hist, int column) {
             ind_l_tmp = ind_l + j;
             const double left_h = projected ? rows_l : Hist.h[ind_l_tmp];
             const double right_h = projected ? rows_r : hr[j] - left_h;
-            tmp += CalScore(grad[ind_l_tmp], left_h, hp.reg_l1, hp.reg_l2) +
-                   CalScore(gr[j] - grad[ind_l_tmp], right_h, hp.reg_l1, hp.reg_l2);
+            tmp += CalScore(grad[ind_l_tmp], left_h, hp.reg_l1, hp.reg_l2, binary_stats) +
+                   CalScore(gr[j] - grad[ind_l_tmp], right_h, hp.reg_l1, hp.reg_l2, binary_stats);
         }
         ind_l += width;
         if (tmp > gain) {
@@ -946,8 +971,8 @@ SplitInfo BoosterMulti::boost_column_topk_two_side(Histogram &Hist, int column) 
         }
         for (int j = 0; j < hp.out_dim; ++j) {
             ind_l_tmp = ind_l + j;
-            score_l = CalScore(Hist.g[ind_l_tmp], Hist.h[ind_l_tmp], hp.reg_l1, hp.reg_l2);
-            score_r = CalScore(gr[j] - Hist.g[ind_l_tmp], hr[j] - Hist.h[ind_l_tmp], hp.reg_l1, hp.reg_l2);
+            score_l = CalScore(Hist.g[ind_l_tmp], Hist.h[ind_l_tmp], hp.reg_l1, hp.reg_l2, binary_stats);
+            score_r = CalScore(gr[j] - Hist.g[ind_l_tmp], hr[j] - Hist.h[ind_l_tmp], hp.reg_l1, hp.reg_l2, binary_stats);
             pq_l.push(make_pair(score_l, j));
             pq_r.push(make_pair(score_r, j));
         }
@@ -997,8 +1022,8 @@ SplitInfo BoosterMulti::boost_column_topk_one_side(Histogram &Hist, int column) 
         }
         for (int j = 0; j < hp.out_dim; ++j) {
             ind_l_tmp = ind_l + j;
-            score_l = CalScore(Hist.g[ind_l_tmp], Hist.h[ind_l_tmp], hp.reg_l1, hp.reg_l2);
-            score_r = CalScore(gr[j] - Hist.g[ind_l_tmp], hr[j] - Hist.h[ind_l_tmp], hp.reg_l1, hp.reg_l2);
+            score_l = CalScore(Hist.g[ind_l_tmp], Hist.h[ind_l_tmp], hp.reg_l1, hp.reg_l2, binary_stats);
+            score_r = CalScore(gr[j] - Hist.g[ind_l_tmp], hr[j] - Hist.h[ind_l_tmp], hp.reg_l1, hp.reg_l2, binary_stats);
             pq.push(make_pair(score_l + score_r, j));
         }
         ind_l += hp.out_dim;
@@ -1023,23 +1048,24 @@ SplitInfo BoosterMulti::boost_column_topk_one_side(Histogram &Hist, int column) 
 }
 
 void BoosterMulti::boost_all(vector<Histogram> &Hist) {
-    vector<SplitInfo> candidates(hp.inp_dim);
+    const int columns = static_cast<int>(Hist.size());
+    vector<SplitInfo> candidates(columns);
     if (hp.topk == 0) {
 #pragma omp parallel for schedule(static)
-        for (int i = 0; i < hp.inp_dim; i++) {
-            candidates[i] = metric_factor.empty() ? boost_column_full(Hist[i], i)
-                                                  : boost_column_quadratic(Hist[i], i);
+        for (int i = 0; i < columns; i++) {
+            candidates[i] = metric_factor.empty() ? boost_column_full(Hist[i], tree_columns[i])
+                                                  : boost_column_quadratic(Hist[i], tree_columns[i]);
         }
     } else {
         if (hp.one_side) {
 #pragma omp parallel for schedule(static)
-            for (int i = 0; i < hp.inp_dim; i++) {
-                candidates[i] = boost_column_topk_one_side(Hist[i], i);
+            for (int i = 0; i < columns; i++) {
+                candidates[i] = boost_column_topk_one_side(Hist[i], tree_columns[i]);
             }
         } else {
 #pragma omp parallel for schedule(static)
-            for (int i = 0; i < hp.inp_dim; i++) {
-                candidates[i] = boost_column_topk_two_side(Hist[i], i);
+            for (int i = 0; i < columns; i++) {
+                candidates[i] = boost_column_topk_two_side(Hist[i], tree_columns[i]);
             }
         }
     }
@@ -1163,7 +1189,7 @@ void BoosterMulti::train(int num_rounds) {
                 project_residual(G + offset, H + offset);
             }
         }
-        growth();
+        growth(obj.f_grad == bce_grad);
         update();
         double comparison, score = 0;
         if (hp.show_round_metrics()) {

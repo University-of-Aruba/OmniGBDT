@@ -10,6 +10,7 @@ General
   - Supported values are ``b"mse"``, ``b"bce"``, ``b"ce"``, and ``b"ce_column"``
   - ``b"ce_column"`` is only relevant to legacy ``SingleOutputGBDT`` classification-style workflows
   - The Python API expects a byte string, for example ``b"mse"``
+  - For binary cross-entropy, a confidently wrong prediction beyond about 36.74 absolute log-odds uses the logistic curvature bound of 0.25. This keeps the corrective step finite even with zero L2 regularization.
   - when training with a custom ``objective=...``, the native booster still requires ``loss`` to be a supported built-in value at construction time, but custom rounds will use the custom callback instead of the built-in objective
 
 - ``verbosity``: default = ``Verbosity.FULL`` (``2``), type = ``Verbosity`` or int
@@ -30,7 +31,7 @@ General
   - The current packaged CPU implementation already uses deterministic split selection
 
 - ``seed``: default = ``0``, type = int
-  - Controls the sequence of training row samples when ``subsample < 1.0``
+  - Controls the training row samples when ``subsample < 1.0`` and input feature samples when ``colsample_bytree < 1.0``
   - Controls Gaussian directions when ``projection_dim`` is set. Each tree uses the seed and its position in the retained ensemble.
 
 - ``hist_cache``: default = ``16``, type = int
@@ -106,6 +107,11 @@ Learning
   - Fraction of training rows used to fit each tree, in the range ``(0, 1]``
   - A value below one draws a fresh sample without replacement for each tree. The sample size is the fraction times the training row count, rounded down, with a minimum of one row.
   - Split statistics and leaf values use the sampled rows. Each tree updates predictions for every training and validation row.
+
+- ``colsample_bytree``: default = ``1.0``, type = float
+  - Fraction of input features available for splitting, in the range ``(0, 1]``. Each tree draws a fresh set without replacement and uses it at every node. With 61 features, ``colsample_bytree=0.8`` draws 48 per tree. The count is rounded down, with a minimum of one.
+  - Available on both boosters and both sklearn regressors. It can be combined with row sampling and, in dense multi-output regression, random output projection. All input columns are still supplied to ``predict()`` in their original order.
+  - To continue the same sampling sequence after loading a model, supply the original fraction and seed. Prediction uses the feature indices stored in the trees.
 
 Training call hooks
 -------------------

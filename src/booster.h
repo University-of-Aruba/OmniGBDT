@@ -28,6 +28,7 @@ public:
     void set_base_score(double *, int);
 
     int set_subsample(double fraction);
+    int set_colsample_bytree(double fraction);
 
     int set_classification_metric(bool use_logloss);
 
@@ -57,7 +58,7 @@ public:
 
     virtual void update() = 0;
 
-    void growth();
+    void growth(bool binary = false);
 
     virtual void boost();
 
@@ -71,6 +72,8 @@ protected:
     vector<double> configured_base_scores;
     std::vector<uint16_t> bin_nums;
     std::vector<std::vector<double>> bin_values;
+    vector<int> tree_columns; // Sorted input feature IDs, indexed by histogram slot.
+    bool binary_stats = false; // Only built-in binary training supplies logistic curvature.
     SplitInfo meta;
     Dataset Train;
     Dataset Eval;
@@ -81,6 +84,7 @@ protected:
     Objective obj;
 
     void init_preds(double *, int) const;
+    void sample_tree_columns();
     bool can_split(int depth, int rows, int leaves) const;
     virtual double minimum_split_score() const { return hp.gamma; }
     virtual vector<Histogram> build_histograms(vector<int32_t> &order, int columns);
