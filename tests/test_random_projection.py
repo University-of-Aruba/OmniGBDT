@@ -38,13 +38,26 @@ def test_projected_tree_fits_all_original_outputs(metric):
     Args:
         metric: Ordinary or coupled loss defining the split geometry.
     """
-    x = np.repeat([0., 1.], 48)[:, None]
-    y = np.repeat([[-2., 1., 4., 6.], [5., 9., 3., -1.]], 48, axis=0)
+    # The four possible cuts span the target space, so any nonzero projection
+    # has a profitable split when the root residuals sum to zero.
+    x = np.repeat(np.arange(5, dtype=float), 48)[:, None]
+    profiles = np.vstack((np.eye(4), np.zeros(4))) + [-2., 1., 4., 6.]
+    y = np.repeat(profiles, 48, axis=0)
+    base = y.mean(axis=0)
     model = _model(projection_dim=1, output_metric=metric, max_depth=1, gamma=0.,
-                   reg_l2=3., base_score=0., lr=1., seed=17)
+                   reg_l2=3., base_score=base, lr=1., seed=17)
     model.set_data((x, y))
     model.train(1)
-    np.testing.assert_allclose(model.predict(x), y * 48 / 51, rtol=1e-14)
+    predictions = model.predict(x)
+    boundaries = np.flatnonzero(np.any(np.diff(predictions, axis=0), axis=1)) + 1
+    assert len(boundaries) == 1
+    split = boundaries.item()
+    assert split in (48, 96, 144, 192)
+    for leaf in (slice(None, split), slice(split, None)):
+        residuals = y[leaf] - base
+        expected = base + residuals.sum(axis=0) / (len(residuals) + 3.)
+        np.testing.assert_allclose(predictions[leaf], np.broadcast_to(expected, residuals.shape),
+                                   rtol=1e-14)
     model.close()
 
 
